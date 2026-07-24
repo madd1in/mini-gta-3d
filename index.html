@@ -593,6 +593,10 @@ let actx,master,musicG,musicLP,sfxG,engMaster,engOsc1,engOsc2,engFilter,engGain,
 let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0;
 let lookX=0,lookY=0,walkX=0,walkY=0;
 let blobTex=null,blobMat=null,carBlob=null,pedBlob=null;
+/* Textur-Atlanten aus dem eigenen Asphaltkoenig-Projekt (assets/): city-ground-atlas 2x2
+   (Asphalt | Gehwegplatten / Erde | Gras), city-detail-atlas 2x2 (Klinker | Kopfstein /
+   Parkplatz | Steinplatten), city-props-atlas 4x4 Sprites mit Alpha. */
+let ATLAS={ground:null,detail:null,props:null},cityProps=[];
 let heatActive=false,heatTimer=0,heatPeak=0;
 const STATIONS=[
  {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
@@ -1075,6 +1079,20 @@ function makeEnvMap(){
 /* Kontaktschatten: auf Mobile ist QUALITY.shadows=false, dadurch wirft nichts einen Schatten und
    alle Fahrzeuge/Fußgänger "schweben" sichtbar über der Straße. Ein weicher Blob unter jedem Objekt
    kostet praktisch nichts und verankert sie optisch — auch auf Desktop eine Ergänzung zum harten Schatten. */
+function loadImage(url){return new Promise(res=>{const im=new Image();
+  im.onload=()=>res(im);im.onerror=()=>res(null);im.src=url;});}
+/* Schneidet eine Atlas-Zelle heraus und skaliert sie auf `size` px, damit sie als CanvasPattern
+   in der Bodentextur kachelbar ist. `inset` schluckt die JPEG-Ränder zwischen den Zellen. */
+function atlasCell(img,cols,col,row,size){
+  const cw=Math.floor(img.width/cols),ch=Math.floor(img.height/cols),ins=Math.max(3,Math.floor(cw*.012));
+  const cv=document.createElement('canvas');cv.width=cv.height=size;
+  cv.getContext('2d').drawImage(img,col*cw+ins,row*ch+ins,cw-ins*2,ch-ins*2,0,0,size,size);
+  return cv;
+}
+function atlasPattern(ctx,img,cols,col,row,size){
+  if(!img)return null;
+  return ctx.createPattern(atlasCell(img,cols,col,row,size),'repeat');
+}
 function makeBlobTexture(){
   const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
   const g=x.createRadialGradient(64,64,4,64,64,62);
@@ -1091,40 +1109,77 @@ function makeBlobShadow(w,d,y,ownMat){
   m.rotation.x=-Math.PI/2;m.position.y=y||.035;m.renderOrder=-1;m.frustumCulled=false;
   return m;
 }
+/* Stadt-Props als Billboard-Sprites auf den Gehwegen. Höhe pro Zelle einzeln gesetzt, damit
+   Hydrant/Poller/Laterne maßstäblich zum Auto (~4.5 lang) und zum Fußgänger (~1.9 hoch) passen. */
+const PROP_H=[1.0,1.15,1.5,0.95, 1.3,1.15,1.5,1.6, 1.15,3.2,1.1,1.05, 1.2,1.45,2.4,1.25];
+function buildCityProps(){
+  if(!ATLAS.props)return;
+  const mats=[];
+  for(let row=0;row<4;row++)for(let col=0;col<4;col++){
+    const cv=atlasCell(ATLAS.props,4,col,row,256);
+    const tx=new THREE.CanvasTexture(cv);
+    tx.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+    mats.push(new THREE.SpriteMaterial({map:tx,transparent:true,alphaTest:.12,depthWrite:false,fog:true}));}
+  const cap=MOBILE?70:190;
+  const blocks=[];
+  for(let i=-CITY;i<CITY;i+=BLOCK)for(let j=-CITY;j<CITY;j+=BLOCK){
+    if(i===STATION.bx&&j===STATION.bz)continue;
+    blocks.push([i,j]);}
+  for(let n=0;n<cap;n++){
+    const [i,j]=blocks[Math.floor(Math.random()*blocks.length)];
+    const side=Math.floor(Math.random()*4),t=rnd(8,32);
+    let px,pz;
+    if(side===0){px=i+t;pz=j+7.6;}
+    else if(side===1){px=i+t;pz=j+32.4;}
+    else if(side===2){px=i+7.6;pz=j+t;}
+    else{px=i+32.4;pz=j+t;}
+    const idx=Math.floor(Math.random()*16),h=PROP_H[idx];
+    const sp=new THREE.Sprite(mats[idx]);
+    sp.position.set(px,h/2,pz);
+    sp.scale.set(h,h,1);
+    scene.add(sp);cityProps.push(sp);}
+}
 function makeGroundTexture(){
   const S=QUALITY.groundTexSize||2048,cv=document.createElement('canvas');cv.width=cv.height=S;
   const x=cv.getContext('2d'),K=S/800,P=v=>(v+CITY)*K;
-  x.fillStyle='#2f6b35';x.fillRect(0,0,S,S);
-  for(let i=0;i<700;i++){x.fillStyle=Math.random()<.5?'#27592c':'#3a7d40';x.fillRect(Math.random()*S,Math.random()*S,rnd(3,22),rnd(3,22));}
-  x.fillStyle='#c2a972';const bw=P(-392);
+  /* Echte Material-Kacheln aus dem Atlas statt Volltonflächen. Die Kachelgröße ist bewusst klein
+     (ca. 10-14 world units), sonst wiederholt sich das Muster auf der 800er-Fläche sichtbar. */
+  const G=ATLAS.ground,D=ATLAS.detail,ps=Math.round(30*K);
+  const patRoad=atlasPattern(x,G,2,0,0,ps),patWalk=atlasPattern(x,G,2,1,0,ps),
+        patDirt=atlasPattern(x,G,2,0,1,ps),patGrass=atlasPattern(x,G,2,1,1,ps),
+        patCobble=atlasPattern(x,D,2,1,0,ps),patLot=atlasPattern(x,D,2,0,1,ps);
+  x.fillStyle=patGrass||'#2f6b35';x.fillRect(0,0,S,S);
+  if(!patGrass)for(let i=0;i<700;i++){x.fillStyle=Math.random()<.5?'#27592c':'#3a7d40';x.fillRect(Math.random()*S,Math.random()*S,rnd(3,22),rnd(3,22));}
+  x.fillStyle=patDirt||'#c2a972';const bw=P(-392);
   x.fillRect(0,0,S,bw);x.fillRect(0,S-bw,S,bw);x.fillRect(0,0,bw,S);x.fillRect(S-bw,0,bw,S);
   for(let i=-CITY;i<CITY;i+=BLOCK)for(let j=-CITY;j<CITY;j+=BLOCK){
-    x.fillStyle='#9a9a93';x.fillRect(P(i+6),P(j+6),28*K,28*K);
+    x.fillStyle=patWalk||'#9a9a93';x.fillRect(P(i+6),P(j+6),28*K,28*K);
     x.strokeStyle='#84847d';x.lineWidth=1;
     for(let t=i+9;t<i+34;t+=5){x.beginPath();x.moveTo(P(t),P(j+6));x.lineTo(P(t),P(j+34));x.stroke();}
     for(let t=j+9;t<j+34;t+=5){x.beginPath();x.moveTo(P(i+6),P(t));x.lineTo(P(i+34),P(t));x.stroke();}
     const isPark=parksData.some(p=>Math.abs(p.x-(i+20))<2&&Math.abs(p.z-(j+20))<2);
     const isPlaza=plazasData.some(p=>Math.abs(p.x-(i+20))<2&&Math.abs(p.z-(j+20))<2);
     if(i===STATION.bx&&j===STATION.bz){
-      x.fillStyle='#a3a39c';x.fillRect(P(i+6),P(j+6),28*K,28*K);
+      x.fillStyle=patLot||'#a3a39c';x.fillRect(P(i+6),P(j+6),28*K,28*K);
       x.strokeStyle='#c9961e';x.lineWidth=3;x.setLineDash([10,8]);
       x.strokeRect(P(i+7.5),P(j+7.5),25*K,25*K);x.setLineDash([]);
       x.strokeStyle='#dcd8ce';x.lineWidth=3;
       x.beginPath();x.moveTo(P(i+15),P(j+13));x.lineTo(P(i+15),P(j+27));
       x.moveTo(P(i+25),P(j+13));x.lineTo(P(i+25),P(j+27));x.stroke();
     }else if(isPark){
-      x.fillStyle='#3f8f42';x.fillRect(P(i+9),P(j+9),22*K,22*K);
+      x.fillStyle=patGrass||'#3f8f42';x.fillRect(P(i+9),P(j+9),22*K,22*K);
       x.strokeStyle='#b8a878';x.lineWidth=6;
       x.beginPath();x.moveTo(P(i+9),P(j+20));x.lineTo(P(i+31),P(j+20));x.stroke();
       x.beginPath();x.moveTo(P(i+20),P(j+9));x.lineTo(P(i+20),P(j+31));x.stroke();
       for(let f=0;f<14;f++){x.fillStyle=['#ff5f94','#ffd23f','#ff7a3a','#c77dff'][f%4];x.fillRect(P(i+10+Math.random()*20),P(j+10+Math.random()*20),4,4);}
     }else if(isPlaza){
-      x.fillStyle='#a8a094';x.fillRect(P(i+9),P(j+9),22*K,22*K);
+      x.fillStyle=patCobble||'#a8a094';x.fillRect(P(i+9),P(j+9),22*K,22*K);
       x.strokeStyle='#928a7e';x.lineWidth=2;
       x.beginPath();x.arc(P(i+20),P(j+20),8*K,0,7);x.stroke();
       x.beginPath();x.arc(P(i+20),P(j+20),5*K,0,7);x.stroke();
     }else{
-      x.fillStyle=(Math.abs(i+j)/BLOCK)%2?'#35703b':'#316a37';x.fillRect(P(i+9),P(j+9),22*K,22*K);}}
+      x.fillStyle=patGrass||((Math.abs(i+j)/BLOCK)%2?'#35703b':'#316a37');x.fillRect(P(i+9),P(j+9),22*K,22*K);
+      if(patGrass&&(Math.abs(i+j)/BLOCK)%2){x.fillStyle='rgba(0,0,0,.07)';x.fillRect(P(i+9),P(j+9),22*K,22*K);}}}
   /* Laufzeit-Optimierung: EINMAL geblurrter Schatten-Sprite statt filter:blur() auf bis zu ~1500
      Gebäuden einzeln (canvas-Blur ist pro Aufruf teuer) — wird nur noch skaliert gestempelt. */
   const shCv=document.createElement('canvas');shCv.width=shCv.height=64;
@@ -1134,8 +1189,8 @@ function makeGroundTexture(){
     x.drawImage(shCv,X-8,Y-8,W+16,H+16);
     x.fillStyle='rgba(0,0,0,.2)';x.fillRect(X-6,Y-6,W+12,H+12);}
   for(let i=-CITY;i<=CITY;i+=BLOCK){
-    x.fillStyle='#b8b8b0';x.fillRect(P(i-6.6),0,13.2*K,S);x.fillRect(0,P(i-6.6),S,13.2*K);
-    x.fillStyle='#232327';x.fillRect(P(i-6),0,12*K,S);x.fillRect(0,P(i-6),S,12*K);}
+    x.fillStyle=patWalk||'#b8b8b0';x.fillRect(P(i-6.6),0,13.2*K,S);x.fillRect(0,P(i-6.6),S,13.2*K);
+    x.fillStyle=patRoad||'#232327';x.fillRect(P(i-6),0,12*K,S);x.fillRect(0,P(i-6),S,12*K);}
   /* Design: Asphalt-Flicken brechen die sonst einheitliche Straßenfarbe auf (Verwitterung) */
   for(let n=0;n<160;n++){x.fillStyle=Math.random()<.5?'rgba(38,38,36,.2)':'rgba(72,70,63,.15)';
     x.fillRect(Math.random()*S,Math.random()*S,rnd(18,60),rnd(14,44));}
@@ -2701,7 +2756,15 @@ async function init(){
   setLoad(10,'Stadt wird generiert\u2026');await nextFrame();
   buildCityData();
   buildSpatialGrid(); /* Laufzeit-Optimierung: Gebäude-Raster für drawMinimap() aufbauen */
-  setLoad(22,'Texturen werden gezeichnet\u2026');await nextFrame();
+  setLoad(20,'Texturen werden geladen\u2026');await nextFrame();
+  /* Atlanten vor makeGroundTexture() laden \u2014 die Bodentextur wird einmalig gezeichnet und braucht
+     die Kacheln als CanvasPattern. Schl\u00e4gt das Laden fehl (null), greifen \u00fcberall die alten Vollt\u00f6ne. */
+  const [gA,dA,pA]=await Promise.all([
+    loadImage('assets/tiles/city-ground-atlas.jpg'),
+    loadImage('assets/tiles/city-detail-atlas-v2.jpg'),
+    loadImage('assets/sprites/city-props-atlas-v1.png')]);
+  ATLAS.ground=gA;ATLAS.detail=dA;ATLAS.props=pA;
+  setLoad(24,'Texturen werden gezeichnet\u2026');await nextFrame();
   groundMat=new THREE.MeshPhongMaterial({map:makeGroundTexture(),shininess:6,specular:0x0d0d0d});
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,800),groundMat);
   ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
@@ -2723,6 +2786,7 @@ async function init(){
   buildBlitzers();buildRamps();buildBoosters();buildCoins();buildDestination();buildSigns();
   buildFountains();buildStation();buildRain();buildHorizon();buildHeli();buildBoats();
   buildPuddles();buildPackages();buildParked();buildTrafficLights();buildFares();buildDriftZones();buildMissionBeacon();
+  buildCityProps();
   setLoad(82,'Verkehr wird simuliert\u2026');await nextFrame();
   for(let i=0;i<QUALITY.traffic;i++)traffic.push(makeTrafficCar());
   for(let i=0;i<QUALITY.npcs;i++)npcs.push(makeNPC());
