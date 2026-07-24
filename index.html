@@ -261,24 +261,22 @@ body.onfoot #speedo{display:none}
 #tcLookKnob.on{background:rgba(255,94,58,.5);border-color:var(--hot)}
 body.mobile.onfoot #tcLookBase{display:block}
 /* Hochkant-Handys: Top-HUD (Navi/Chips) verdeckt sonst zu viel vom Spielfeld */
-@media (orientation:portrait){
-  body.mobile #navi{width:min(72vw,300px)}
-  body.mobile #chips{transform:scale(.82);transform-origin:top left}
-  body.mobile #topRight{transform:scale(.88);transform-origin:top right}
-  body.mobile #soundChip{display:none}
-}
-/* Querformat-Handys: wenig Bildschirmhöhe -> Navi/Chips/Anzeige oben deutlich kompakter, damit nicht die halbe Spielfläche verdeckt wird */
-@media (orientation:landscape){
-  body.mobile #navi{width:min(46vw,250px)}
-  body.mobile #chips{transform:scale(.68);transform-origin:top left}
-  body.mobile #topRight{transform:scale(.78);transform-origin:top right}
-  body.mobile #soundChip,body.mobile #npChip{display:none}
-  body.mobile #mission{top:56px}
-  /* Querformat hat kaum Höhe für die großen Fahr-Buttons -> ganzen Steuerkreuz-Cluster verkleinern und Minimap/Tacho eng darüber platzieren */
-  body.mobile:not(.onfoot) #touchControls{transform:scale(.7);transform-origin:bottom center}
-  body.mobile:not(.onfoot) #minimapWrap{bottom:calc(16px + env(safe-area-inset-bottom));transform:scale(.5);transform-origin:left bottom}
-  body.mobile:not(.onfoot) #speedo{bottom:calc(205px + env(safe-area-inset-bottom));transform:scale(.54);transform-origin:right bottom}
-}
+/* Immer aus auf Handys: rein dekorative Anzeigen, die nur Platz wegnehmen */
+body.mobile #soundChip,body.mobile #npChip,body.mobile #topspd{display:none}
+/* Orientierung wird zusätzlich per JS erkannt (siehe syncOrientation()) statt nur über @media (orientation:) --
+   manche mobilen Browser aktualisieren die reine CSS-Media-Query nach einem Rotationswechsel nicht zuverlässig,
+   wodurch Elemente nach hochkant->quer->hochkant fälschlich in der Quer-Skalierung hängen bleiben. */
+body.mobile.is-portrait #navi{width:min(66vw,280px)}
+body.mobile.is-portrait #chips{transform:scale(.72);transform-origin:top left}
+body.mobile.is-portrait #topRight{transform:scale(.82);transform-origin:top right}
+body.mobile.is-landscape #navi{width:min(40vw,220px)}
+body.mobile.is-landscape #chips{transform:scale(.6);transform-origin:top left}
+body.mobile.is-landscape #topRight{transform:scale(.72);transform-origin:top right}
+body.mobile.is-landscape #mission{top:56px}
+/* Querformat hat kaum Höhe für die großen Fahr-Buttons -> ganzen Steuerkreuz-Cluster verkleinern und Minimap/Tacho eng darüber platzieren */
+body.mobile.is-landscape:not(.onfoot) #touchControls{transform:scale(.7);transform-origin:bottom center}
+body.mobile.is-landscape:not(.onfoot) #minimapWrap{bottom:calc(16px + env(safe-area-inset-bottom));transform:scale(.5);transform-origin:left bottom}
+body.mobile.is-landscape:not(.onfoot) #speedo{bottom:calc(205px + env(safe-area-inset-bottom));transform:scale(.54);transform-origin:right bottom}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:flex;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
@@ -2520,6 +2518,11 @@ function cacheDOM(){
    der gesamten Ladezeit nicht neu zeichnen — der Balken hätte nie sichtbaren Fortschritt
    gezeigt, nur bei 0% gehangen und dann auf 100% gesprungen. */
 function nextFrame(){return new Promise(res=>requestAnimationFrame(()=>res()));}
+function syncOrientation(){
+  const land=innerWidth>innerHeight;
+  document.body.classList.toggle('is-landscape',land);
+  document.body.classList.toggle('is-portrait',!land);
+}
 function setLoad(pct,label){
   if(DOM.loadBar)DOM.loadBar.style.width=pct+'%';
   if(label&&DOM.loadLabel)DOM.loadLabel.textContent=label;
@@ -2595,6 +2598,11 @@ async function init(){
     document.body.classList.add('mobile');
     QUALITY={winCap:2200,shadows:false,traffic:8,npcs:9,bloomScale:.26,pixelCap:1.0,antialias:false,groundTexSize:1024};
   }
+  /* Orientierung per JS statt nur @media (orientation:) -- manche mobilen Browser lassen die
+     CSS-Media-Query nach hochkant->quer->hochkant hängen, wodurch HUD-Elemente zu klein bleiben. */
+  syncOrientation();
+  addEventListener('resize',syncOrientation);
+  addEventListener('orientationchange',syncOrientation);
   setLoad(4,'Initialisiere\u2026');await nextFrame();
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x86c8f5);
