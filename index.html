@@ -237,6 +237,17 @@ font:700 13px 'Chakra Petch';letter-spacing:1px;user-select:none;-webkit-user-se
 #tcBrake{right:calc(112px + env(safe-area-inset-right));bottom:calc(96px + env(safe-area-inset-bottom));width:58px;height:58px;font-size:11px;border-color:#ff8a8a;color:#ff8a8a}
 #tcNitro{right:calc(26px + env(safe-area-inset-right));bottom:calc(180px + env(safe-area-inset-bottom));width:52px;height:52px;border-color:var(--cyan);color:var(--cyan)}
 #tcAction{left:calc(24px + env(safe-area-inset-left));bottom:calc(158px + env(safe-area-inset-bottom));width:52px;height:52px;font-size:10px;border-color:#fff;color:#fff}
+#tcJoyBase{position:fixed;display:none;left:calc(26px + env(safe-area-inset-left));bottom:calc(26px + env(safe-area-inset-bottom));
+  width:132px;height:132px;border-radius:50%;background:rgba(10,15,28,.5);border:2px solid rgba(255,255,255,.35);
+  pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;z-index:40}
+#tcJoyKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;
+  background:rgba(255,255,255,.28);border:2px solid rgba(255,255,255,.65);transform:translate(-50%,-50%);
+  pointer-events:none;transition:background .12s,border-color .12s}
+#tcJoyKnob.on{background:rgba(53,240,255,.5);border-color:var(--cyan)}
+body.onfoot #tcLeft,body.onfoot #tcRight,body.onfoot #tcGas,body.onfoot #tcBrake,
+body.onfoot #tcHandbrake,body.onfoot #tcNitro{display:none}
+body.mobile.onfoot #tcJoyBase{display:block}
+body.onfoot #speedo{display:none}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:flex;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
@@ -354,6 +365,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
 <div id="touchControls">
   <div class="tcBtn" id="tcLeft">&#9664;</div>
   <div class="tcBtn" id="tcRight">&#9654;</div>
+  <div id="tcJoyBase"><div id="tcJoyKnob"></div></div>
   <div class="tcBtn" id="tcHandbrake">HB</div>
   <div class="tcBtn" id="tcAction">AUS/EIN</div>
   <div class="tcBtn" id="tcNitro">NOS</div>
@@ -2464,6 +2476,7 @@ function cacheDOM(){
     'naviText','speedNum','nitroFill','nitroBar','fuelFill','fuelBar','speedFX','speedLines','anaFlare','slowFX',
     'money','wanted','clock','topspd','refuelMsg','pkgChip','driftEl','jackMsg','slowEl','minimap','title',
     'loadScreen','loadLabel','tcLeft','tcRight','tcGas','tcBrake','tcNitro','tcHandbrake','tcAction','vehicleBtn',
+    'tcJoyBase','tcJoyKnob',
     'tcMenuBtn','tcMenuPanel','mHorn','mRadio','mMap','mRace','mBullet','mLights','mBribe','mPaint','mGlow','mWeather','mMute','mStation'];
   for(const id of ids)DOM[id]=document.getElementById(id);
   DOM.loadBar=document.getElementById('loadBarInner');
@@ -2494,6 +2507,43 @@ function bindTouch(el,code){
   el.addEventListener('pointerup',off);
   el.addEventListener('pointercancel',off);
   el.addEventListener('contextmenu',e=>e.preventDefault());
+}
+function setJoyKeys(dx,dy,maxR,active){
+  keys.KeyW=keys.KeyA=keys.KeyS=keys.KeyD=false;
+  if(!active||!maxR)return;
+  const mag=Math.hypot(dx,dy)/maxR;
+  if(mag<.22)return;
+  const deg=(Math.atan2(-dy,dx)*180/Math.PI+360)%360;
+  if(deg>=337.5||deg<22.5)keys.KeyD=true;
+  else if(deg<67.5){keys.KeyD=true;keys.KeyW=true;}
+  else if(deg<112.5)keys.KeyW=true;
+  else if(deg<157.5){keys.KeyA=true;keys.KeyW=true;}
+  else if(deg<202.5)keys.KeyA=true;
+  else if(deg<247.5){keys.KeyA=true;keys.KeyS=true;}
+  else if(deg<292.5)keys.KeyS=true;
+  else{keys.KeyD=true;keys.KeyS=true;}
+}
+function bindJoystick(base,knob){
+  if(!base||!knob)return;
+  let active=false,cx=0,cy=0,maxR=1;
+  const move=e=>{if(!active)return;e.preventDefault();
+    let dx=e.clientX-cx,dy=e.clientY-cy;const d=Math.hypot(dx,dy);
+    if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR;}
+    knob.style.transform='translate(calc(-50% + '+dx+'px), calc(-50% + '+dy+'px))';
+    setJoyKeys(dx,dy,maxR,true);};
+  const start=e=>{e.preventDefault();const r=base.getBoundingClientRect();
+    cx=r.left+r.width/2;cy=r.top+r.height/2;maxR=r.width/2;
+    active=true;knob.classList.add('on');
+    try{base.setPointerCapture(e.pointerId);}catch(err){}
+    move(e);};
+  const end=e=>{if(!active)return;e.preventDefault();active=false;
+    knob.classList.remove('on');knob.style.transform='translate(-50%,-50%)';
+    setJoyKeys(0,0,maxR,false);};
+  base.addEventListener('pointerdown',start);
+  base.addEventListener('pointermove',move);
+  base.addEventListener('pointerup',end);
+  base.addEventListener('pointercancel',end);
+  base.addEventListener('contextmenu',e=>e.preventDefault());
 }
 async function init(){
   cacheDOM();
@@ -2608,6 +2658,7 @@ async function init(){
   bindTouch(DOM.tcLeft,'KeyA');bindTouch(DOM.tcRight,'KeyD');
   bindTouch(DOM.tcGas,'KeyW');bindTouch(DOM.tcBrake,'KeyS');
   bindTouch(DOM.tcNitro,'ShiftLeft');bindTouch(DOM.tcHandbrake,'Space');
+  bindJoystick(DOM.tcJoyBase,DOM.tcJoyKnob);
   bindTap(DOM.tcAction,()=>{if(onFoot)enterVehicle();else exitVehicle();});
   DOM.vehicleBtn.addEventListener('click',()=>{if(onFoot)enterVehicle();else exitVehicle();});
   bindTap(DOM.tcMenuBtn,()=>{DOM.tcMenuPanel.classList.toggle('open');});
@@ -3007,7 +3058,9 @@ function update(dt){
   wanted=Math.max(0,wanted-dt*(hideoutIdle?.35:(police.length?.02:.07)));
   {const label=onFoot?'EINSTEIGEN':'AUSSTEIGEN';
    if(DOM.vehicleBtn._last!==label){DOM.vehicleBtn._last=label;DOM.vehicleBtn.textContent=label;
-     DOM.vehicleBtn.classList.toggle('onfoot',onFoot);}}
+     DOM.vehicleBtn.classList.toggle('onfoot',onFoot);
+     document.body.classList.toggle('onfoot',onFoot);
+     if(!onFoot)setJoyKeys(0,0,1,false);}}
   updateNavi();updateHUD(dt,dayT);drawMinimap();
 }
 init().catch(e=>console.error('Init-Fehler:',e));
