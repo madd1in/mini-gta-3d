@@ -266,6 +266,9 @@ body.mobile.onfoot #tcLookBase{display:block}
 /* Hochkant-Handys: Top-HUD (Navi/Chips) verdeckt sonst zu viel vom Spielfeld */
 /* Immer aus auf Handys: rein dekorative Anzeigen, die nur Platz wegnehmen */
 body.mobile #soundChip,body.mobile #npChip,body.mobile #topspd{display:none}
+/* Menü-Button lag unter der Geld/Uhr-Anzeige oben rechts -> auf Mobile darunter setzen */
+body.mobile #tcMenuBtn{top:calc(88px + env(safe-area-inset-top))}
+body.mobile #tcMenuPanel{top:calc(138px + env(safe-area-inset-top))}
 /* Orientierung wird zusätzlich per JS erkannt (siehe syncOrientation()) statt nur über @media (orientation:) --
    manche mobilen Browser aktualisieren die reine CSS-Media-Query nach einem Rotationswechsel nicht zuverlässig,
    wodurch Elemente nach hochkant->quer->hochkant fälschlich in der Quer-Skalierung hängen bleiben. */
