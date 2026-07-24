@@ -276,8 +276,12 @@ body.mobile.onfoot #tcLookBase{display:block}
    Zonen: oben-links Navi+Chips · oben-rechts Geld/Uhr+Menü+Tacho · unten-links Minimap · unten Buttons.
    Orientierung kommt per JS (syncOrientation()) statt @media(orientation:), weil manche mobilen
    Browser die reine CSS-Query nach hochkant->quer->hochkant nicht zuverlässig aktualisieren. */
+/* Minimale Mobile-GUI: alles raus, was auf dem Handy nur Fläche kostet — Tastatur-Hinweise,
+   Radio-/Paket-/Cheat-Chips (Radio liegt im ⋮-Menü), Rundinstrument, Uhr und Titel-Label. */
 body.mobile #soundChip,body.mobile #npChip,body.mobile #topspd,body.mobile #mmLabel,
-body.mobile #rpmCanvas,body.mobile #refuelMsg{display:none}
+body.mobile #rpmCanvas,body.mobile #refuelMsg,body.mobile #radioChip,body.mobile #pkgChip,
+body.mobile #cheatChip,body.mobile #clock,body.mobile .barLabel{display:none}
+body.mobile #chips{gap:4px}
 body.mobile #speedo{flex-direction:column;align-items:flex-end;gap:5px;bottom:auto;
   top:calc(96px + env(safe-area-inset-top));right:calc(14px + env(safe-area-inset-right));transform:none}
 body.mobile #pedals{gap:5px}
@@ -294,15 +298,31 @@ body.mobile.is-portrait #chips{transform:scale(.72);transform-origin:top left}
 body.mobile.is-portrait #topRight{transform:scale(.82);transform-origin:top right}
 body.mobile.is-portrait #mission{top:calc(300px + env(safe-area-inset-top))}
 body.mobile.is-portrait #minimapWrap{transform:scale(.62);bottom:calc(272px + env(safe-area-inset-bottom))}
-body.mobile.is-landscape #navi{width:min(36vw,200px)}
-body.mobile.is-landscape #chips{transform:scale(.58);transform-origin:top left}
-body.mobile.is-landscape #topRight{transform:scale(.7);transform-origin:top right}
-body.mobile.is-landscape #mission{top:calc(150px + env(safe-area-inset-top))}
-body.mobile.is-landscape #speedo{top:calc(74px + env(safe-area-inset-top));transform:scale(.8);transform-origin:right top}
-body.mobile.is-landscape #minimapWrap{transform:scale(.46);bottom:calc(4px + env(safe-area-inset-bottom))}
-body.mobile.is-landscape #tcMenuBtn{bottom:auto;top:calc(16px + env(safe-area-inset-top));right:calc(120px + env(safe-area-inset-right))}
-body.mobile.is-landscape #tcMenuPanel{bottom:auto;top:calc(66px + env(safe-area-inset-top));right:calc(120px + env(safe-area-inset-right))}
-body.mobile.is-landscape:not(.onfoot) #touchControls{transform:scale(.72);transform-origin:bottom center}
+/* Querformat: Richtungstasten unten links, Minimap direkt darüber. Die Buttons bekommen hier
+   EIGENE Größen statt einer transform:scale() auf #touchControls — genau diese Container-Skalierung
+   blieb nach mehrfachem Drehen hängen und ließ die Buttons dauerhaft geschrumpft zurück. */
+body.mobile.is-landscape #navi{width:min(34vw,190px)}
+body.mobile.is-landscape #chips{transform:scale(.56);transform-origin:top left}
+body.mobile.is-landscape #topRight{transform:scale(.68);transform-origin:top right}
+body.mobile.is-landscape #mission{top:calc(96px + env(safe-area-inset-top))}
+body.mobile.is-landscape #speedo{top:calc(64px + env(safe-area-inset-top));transform:scale(.62);transform-origin:right top}
+body.mobile.is-landscape #minimapWrap{transform:scale(.42);bottom:calc(150px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcMenuBtn{bottom:calc(14px + env(safe-area-inset-bottom));top:auto;right:calc(96px + env(safe-area-inset-right))}
+body.mobile.is-landscape #tcMenuPanel{bottom:calc(70px + env(safe-area-inset-bottom));top:auto;right:calc(14px + env(safe-area-inset-right))}
+body.mobile.is-landscape #tcLeft{width:70px;height:70px;font-size:27px;
+  left:calc(14px + env(safe-area-inset-left));bottom:calc(74px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcRight{width:70px;height:70px;font-size:27px;
+  left:calc(90px + env(safe-area-inset-left));bottom:calc(74px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcHandbrake{width:56px;height:56px;font-size:12px;
+  left:calc(46px + env(safe-area-inset-left));bottom:calc(12px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcAction{width:52px;height:52px;font-size:10px;
+  left:calc(168px + env(safe-area-inset-left));bottom:calc(80px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcGas{width:86px;height:86px;font-size:16px;
+  right:calc(14px + env(safe-area-inset-right));bottom:calc(70px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcBrake{width:64px;height:64px;font-size:12px;
+  right:calc(110px + env(safe-area-inset-right));bottom:calc(80px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcNitro{width:54px;height:54px;font-size:11px;
+  right:calc(24px + env(safe-area-inset-right));bottom:calc(166px + env(safe-area-inset-bottom))}
 /* Laufmodus: unten links sitzt der Lauf-Joystick -> Minimap nach oben rechts, wo der Tacho ausgeblendet ist */
 body.mobile.onfoot #minimapWrap{left:auto;bottom:auto;right:calc(14px + env(safe-area-inset-right));
   top:calc(92px + env(safe-area-inset-top));transform-origin:right top;margin-left:0}
@@ -1108,6 +1128,76 @@ function makeBlobShadow(w,d,y,ownMat){
   const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),ownMat?blobMat.clone():blobMat);
   m.rotation.x=-Math.PI/2;m.position.y=y||.035;m.renderOrder=-1;m.frustumCulled=false;
   return m;
+}
+/* ===== ECHTE KACHEL-OBERFLÄCHEN =====
+   Die Bodentextur deckt 800x800 Welteinheiten mit 2048px ab — nur ~2,5px pro Einheit. Eine 12
+   Einheiten breite Straße bekommt darin 31px, jede eingebackene Kachel verschwimmt also zu einer
+   Fläche (deshalb waren die Atlas-Kacheln vorher praktisch unsichtbar). Straßen und Gehwege
+   bekommen daher eigene Geometrie mit UV-Wiederholung: dort bestimmt allein die Texturgröße die
+   Schärfe, unabhängig von der Weltausdehnung. Alle Segmente landen in EINER Geometrie -> 1 Drawcall.
+   Kreuzungen bleiben bewusst ausgespart, damit Zebrastreifen/Gullys der Bodentextur sichtbar bleiben
+   und sich die Längs-/Querstreifen nicht überlagern (Z-Fighting). */
+function makeRoadTexture(){
+  const S=256,cv=document.createElement('canvas');cv.width=cv.height=S;const x=cv.getContext('2d');
+  if(ATLAS.ground)x.drawImage(atlasCell(ATLAS.ground,2,0,0,S),0,0);
+  else{x.fillStyle='#232327';x.fillRect(0,0,S,S);}
+  const U=S/12; /* 1 Welteinheit in px — Kachel entspricht 12x12 Einheiten (Straßenbreite) */
+  x.fillStyle='rgba(215,211,200,.85)';
+  x.fillRect(0,Math.round(U*1-U*.13),S,Math.round(U*.26));
+  x.fillRect(0,Math.round(U*11-U*.13),S,Math.round(U*.26));
+  x.fillStyle='#b8983a';
+  x.fillRect(0,Math.round(U*6-U*.16),Math.round(U*5),Math.round(U*.32));
+  const t=new THREE.CanvasTexture(cv);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+function makeWalkTexture(){
+  const S=256,cv=document.createElement('canvas');cv.width=cv.height=S;const x=cv.getContext('2d');
+  if(ATLAS.ground)x.drawImage(atlasCell(ATLAS.ground,2,1,0,S),0,0);
+  else{x.fillStyle='#9a9a93';x.fillRect(0,0,S,S);}
+  const t=new THREE.CanvasTexture(cv);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+function pushQuad(pos,uv,x0,z0,x1,z1,y,uA,vA,uB,vB,swap){
+  const q=[[x0,z0],[x1,z0],[x1,z1],[x0,z1]];
+  const uvq=[[uA,vA],[uB,vA],[uB,vB],[uA,vB]];
+  const order=[0,2,1,0,3,2];
+  for(const i of order){
+    pos.push(q[i][0],y,q[i][1]);
+    uv.push(swap?uvq[i][1]:uvq[i][0], swap?uvq[i][0]:uvq[i][1]);
+  }
+}
+function buildTiledSurfaces(){
+  const RW=6,TILE=12,WALK=3,WT=3; /* Straßenhalbbreite, Kachel=12 Einheiten, Gehwegbreite/-kachel */
+  const rp=[],ru=[],wp=[],wu=[];
+  for(let c=-CITY;c<=CITY;c+=BLOCK){
+    for(let b=-CITY;b<CITY;b+=BLOCK){
+      const a0=b+RW,a1=b+BLOCK-RW; /* Segment zwischen zwei Kreuzungen */
+      /* Längsstraße (entlang X) bei z=c: u folgt X (weltbezogen, damit Striche durchlaufen) */
+      pushQuad(rp,ru,a0,c-RW,a1,c+RW,.02,a0/TILE,0,a1/TILE,1,false);
+      /* Querstraße (entlang Z) bei x=c: u folgt Z, v quer -> UV-Paare getauscht */
+      pushQuad(rp,ru,c-RW,a0,c+RW,a1,.021,a0/TILE,0,a1/TILE,1,true);
+    }
+  }
+  for(let i=-CITY;i<CITY;i+=BLOCK)for(let j=-CITY;j<CITY;j+=BLOCK){
+    const x0=i+RW,x1=i+BLOCK-RW,z0=j+RW,z1=j+BLOCK-RW; /* Gehwegquadrat 6..34 */
+    const ix0=x0+WALK,ix1=x1-WALK,iz0=z0+WALK,iz1=z1-WALK; /* Innenkante 9..31 */
+    const bands=[[x0,z0,x1,iz0],[x0,iz1,x1,z1],[x0,iz0,ix0,iz1],[ix1,iz0,x1,iz1]];
+    for(const [bx0,bz0,bx1,bz1] of bands)
+      pushQuad(wp,wu,bx0,bz0,bx1,bz1,.015,bx0/WT,bz0/WT,bx1/WT,bz1/WT,false);
+  }
+  const mk=(pos,uv,tex)=>{
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+    g.computeVertexNormals();
+    const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({map:tex}));
+    m.receiveShadow=true;scene.add(m);return m;};
+  mk(rp,ru,makeRoadTexture());
+  mk(wp,wu,makeWalkTexture());
 }
 /* Stadt-Props als Billboard-Sprites auf den Gehwegen. Höhe pro Zelle einzeln gesetzt, damit
    Hydrant/Poller/Laterne maßstäblich zum Auto (~4.5 lang) und zum Fußgänger (~1.9 hoch) passen. */
@@ -2645,10 +2735,22 @@ function cacheDOM(){
    der gesamten Ladezeit nicht neu zeichnen — der Balken hätte nie sichtbaren Fortschritt
    gezeigt, nur bei 0% gehangen und dann auf 100% gesprungen. */
 function nextFrame(){return new Promise(res=>requestAnimationFrame(()=>res()));}
+/* Orientierung robust bestimmen. Nach 'orientationchange' liefern viele mobile Browser noch die
+   ALTEN innerWidth/innerHeight-Werte; wird dann einmalig ausgewertet, bleibt die falsche Klasse
+   hängen (Symptom: Buttons bleiben nach mehrfachem Drehen in der Querformat-Größe stecken).
+   Deshalb: Media-Query als zweite Quelle und mehrfaches Nachfassen nach dem Dreh-Event. */
 function syncOrientation(){
-  const land=innerWidth>innerHeight;
+  let land=innerWidth>innerHeight;
+  if(window.matchMedia){
+    const mq=matchMedia('(orientation: landscape)');
+    if(typeof mq.matches==='boolean'&&innerWidth===innerHeight)land=mq.matches;
+  }
   document.body.classList.toggle('is-landscape',land);
   document.body.classList.toggle('is-portrait',!land);
+}
+function scheduleOrientationSync(){
+  syncOrientation();
+  [60,180,400,800].forEach(ms=>setTimeout(syncOrientation,ms));
 }
 function setLoad(pct,label){
   if(DOM.loadBar)DOM.loadBar.style.width=pct+'%';
@@ -2729,7 +2831,10 @@ async function init(){
      CSS-Media-Query nach hochkant->quer->hochkant hängen, wodurch HUD-Elemente zu klein bleiben. */
   syncOrientation();
   addEventListener('resize',syncOrientation);
-  addEventListener('orientationchange',syncOrientation);
+  addEventListener('orientationchange',scheduleOrientationSync);
+  if(window.screen&&screen.orientation&&screen.orientation.addEventListener)
+    screen.orientation.addEventListener('change',scheduleOrientationSync);
+  if(window.visualViewport)visualViewport.addEventListener('resize',syncOrientation);
   setLoad(4,'Initialisiere\u2026');await nextFrame();
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x86c8f5);
@@ -2786,7 +2891,7 @@ async function init(){
   buildBlitzers();buildRamps();buildBoosters();buildCoins();buildDestination();buildSigns();
   buildFountains();buildStation();buildRain();buildHorizon();buildHeli();buildBoats();
   buildPuddles();buildPackages();buildParked();buildTrafficLights();buildFares();buildDriftZones();buildMissionBeacon();
-  buildCityProps();
+  buildTiledSurfaces();buildCityProps();
   setLoad(82,'Verkehr wird simuliert\u2026');await nextFrame();
   for(let i=0;i<QUALITY.traffic;i++)traffic.push(makeTrafficCar());
   for(let i=0;i<QUALITY.npcs;i++)npcs.push(makeNPC());
