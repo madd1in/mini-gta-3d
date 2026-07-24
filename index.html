@@ -269,6 +269,8 @@ body.mobile #soundChip,body.mobile #npChip,body.mobile #topspd{display:none}
 /* Menü-Button lag unter der Geld/Uhr-Anzeige oben rechts -> auf Mobile darunter setzen */
 body.mobile #tcMenuBtn{top:calc(88px + env(safe-area-inset-top))}
 body.mobile #tcMenuPanel{top:calc(138px + env(safe-area-inset-top))}
+/* Missions-Banner erschien automatisch über der Navi-Box -> auf Mobile tiefer setzen */
+body.mobile #mission{top:calc(98px + env(safe-area-inset-top))}
 /* Orientierung wird zusätzlich per JS erkannt (siehe syncOrientation()) statt nur über @media (orientation:) --
    manche mobilen Browser aktualisieren die reine CSS-Media-Query nach einem Rotationswechsel nicht zuverlässig,
    wodurch Elemente nach hochkant->quer->hochkant fälschlich in der Quer-Skalierung hängen bleiben. */
@@ -284,8 +286,9 @@ body.mobile.is-landscape:not(.onfoot) #touchControls{transform:scale(.7);transfo
 body.mobile.is-landscape:not(.onfoot) #minimapWrap{bottom:calc(16px + env(safe-area-inset-bottom));transform:scale(.5);transform-origin:left bottom}
 body.mobile.is-landscape:not(.onfoot) #speedo{top:calc(96px + env(safe-area-inset-top));transform:scale(.42);transform-origin:right top}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
-display:flex;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
+display:none;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
+body.mobile #tcMenuBtn{display:flex}
 #tcMenuBtn.on{filter:brightness(1.6);box-shadow:0 0 18px currentColor}
 #tcMenuPanel{position:fixed;top:calc(66px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));display:none;grid-template-columns:repeat(3,74px);gap:8px;
 pointer-events:auto;background:rgba(10,15,28,.92);border:2px solid var(--cyan);border-radius:10px;padding:9px}
@@ -407,21 +410,21 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
   <div class="tcBtn" id="tcNitro">NOS</div>
   <div class="tcBtn" id="tcBrake">BR</div>
   <div class="tcBtn" id="tcGas">GAS</div>
-  <div id="tcMenuBtn">&#8942;</div>
-  <div id="tcMenuPanel">
-    <div class="mBtn" id="mHorn">HUPE</div>
-    <div class="mBtn" id="mRadio">RADIO</div>
-    <div class="mBtn" id="mMap">KARTE</div>
-    <div class="mBtn" id="mRace">RENNEN</div>
-    <div class="mBtn" id="mBullet">BULLET</div>
-    <div class="mBtn" id="mLights">LICHT</div>
-    <div class="mBtn" id="mBribe">BESTECH</div>
-    <div class="mBtn" id="mPaint">LACK</div>
-    <div class="mBtn" id="mGlow">GLOW</div>
-    <div class="mBtn" id="mWeather">WETTER</div>
-    <div class="mBtn" id="mMute">STUMM</div>
-    <div class="mBtn" id="mStation">TANKE</div>
-  </div>
+</div>
+<div id="tcMenuBtn">&#8942;</div>
+<div id="tcMenuPanel">
+  <div class="mBtn" id="mHorn">HUPE</div>
+  <div class="mBtn" id="mRadio">RADIO</div>
+  <div class="mBtn" id="mMap">KARTE</div>
+  <div class="mBtn" id="mRace">RENNEN</div>
+  <div class="mBtn" id="mBullet">BULLET</div>
+  <div class="mBtn" id="mLights">LICHT</div>
+  <div class="mBtn" id="mBribe">BESTECH</div>
+  <div class="mBtn" id="mPaint">LACK</div>
+  <div class="mBtn" id="mGlow">GLOW</div>
+  <div class="mBtn" id="mWeather">WETTER</div>
+  <div class="mBtn" id="mMute">STUMM</div>
+  <div class="mBtn" id="mStation">TANKE</div>
 </div>
 
 <script>
