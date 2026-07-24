@@ -20,8 +20,17 @@ Einfach `index.html` öffnen, oder über GitHub Pages: siehe Link oben im Repo.
 - Skalierte HUD-Elemente (Minimap, Tacho) auf kleinen Bildschirmen
 - Resize-Handling für Kamera/Renderer bei Drehung oder Browser-UI-Änderungen
 
+## Radio
+
+Standardsender **MINI CITY FM** spielt vier echte MP3-Tracks (`radio/`) als Playlist, die automatisch weiterläuft. Mit **Tab** (oder dem Radio-Chip/Menü-Button) schaltest du weiter zu den prozedural generierten Sendern (Synthwave, Lo-Fi, Breakbeat, Techno, Funk, Rock, Jazz, 8-Bit, Polizeifunk) oder ganz aus.
+
+- NEON HEIST RUN
+- VICE COAST RUN
+- BOULEVARD HEAT LOOP
+- FIVE STAR MAYHEM
+
 ## Tech
 
 - [Three.js](https://threejs.org/) r128 (CDN, kein Bundler) mit Postprocessing (Bloom)
-- Web Audio API für prozedural generierten Soundtrack, Motorensound und SFX
+- Web Audio API für den MP3-Radiosender (`MediaElementSource`) sowie prozedural generierten Soundtrack, Motorensound und SFX auf den übrigen Sendern
 - `localStorage` für Speicherstand (Geld, Autos, Upgrades, Erfolge, Bestzeiten)

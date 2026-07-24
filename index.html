@@ -323,8 +323,8 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
     <div class="chip" id="raceChip">&#127937; <b id="racePos">POS 1/4</b> &nbsp;&#183;&nbsp; <span id="raceCp">CP 0/0</span></div>
     <div class="chip" id="pkgChip">&#128230; PAKETE &nbsp;<b>0/10</b></div>
     <div class="chip" id="cheatChip">&#128273; <span id="cheatTxt"></span></div>
-    <div class="chip" id="radioChip">&#128251; <b>TURBO FM</b> &nbsp;&#8226;&nbsp; SYNTHWAVE &nbsp;[TAB]</div>
-    <div class="chip" id="npChip"><span class="eq"></span><span class="eq"></span><span class="eq"></span>&nbsp;&#9835; <span id="npName">NEON NIGHTS</span></div>
+    <div class="chip" id="radioChip">&#128251; <b>MINI CITY FM</b> &nbsp;&#8226;&nbsp; ORIGINAL MIX &nbsp;[TAB]</div>
+    <div class="chip" id="npChip"><span class="eq"></span><span class="eq"></span><span class="eq"></span>&nbsp;&#9835; <span id="npName">NEON HEIST RUN</span></div>
     <div class="chip" id="soundChip">&#127925; SOUND AN &nbsp;[M] &nbsp;&#183;&nbsp; <b>[Y] HANDY</b></div>
   </div>
   <div id="mission"></div>
@@ -512,7 +512,13 @@ function djSay(text){if(djCd>0)return;djCd=8;
 
 /* ============ AUDIO ============ */
 let actx,master,musicG,musicLP,sfxG,engMaster,engOsc1,engOsc2,engFilter,engGain,driftGain,sirenOsc,sirenGain,delayNode,noiseBuf,muted=false,nextNote=0,seqStep=0,stationIdx=0;
+let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0;
 const STATIONS=[
+ {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
+   {title:'NEON HEIST RUN',file:'radio/neon-heist-run.mp3'},
+   {title:'VICE COAST RUN',file:'radio/vice-coast-run.mp3'},
+   {title:'BOULEVARD HEAT LOOP',file:'radio/boulevard-heat-loop.mp3'},
+   {title:'FIVE STAR MAYHEM',file:'radio/five-star-mayhem.mp3'}]},
  {name:'TURBO FM',tag:'SYNTHWAVE',bpm:112,swing:0,chords:[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],roots:[33,29,36,31],bassMode:0,arp:1,lead:1,kick:[0,4,8,12],snare:[4,12],hats:'all',leadPat:[76,null,74,null,72,null,74,76,null,79,null,76,null,74,72,null,null]},
  {name:'NIGHT DRIVE',tag:'LO-FI CHILL',bpm:74,swing:.16,chords:[[59,62,66,69],[55,59,62,66],[52,55,59,62],[57,60,64,67]],roots:[35,31,28,33],bassMode:1,arp:0,lead:0,kick:[0,7,10],snare:[8],hats:'off',leadPat:null},
  {name:'NITRO FM',tag:'BREAKBEAT',bpm:152,swing:0,chords:[[57,60,64],[55,59,62],[57,60,64],[50,53,57]],roots:[33,31,33,26],bassMode:2,arp:2,lead:0,kick:[0,10],snare:[4,12],hats:'all',leadPat:null},
@@ -563,7 +569,20 @@ function initAudio(){
   ambientGain=actx.createGain();ambientGain.gain.value=0;
   as.connect(af);af.connect(ambientGain);ambientGain.connect(sfxG);as.start();
   nextNote=actx.currentTime+.06;setInterval(scheduler,80);
+  radioAudio=new Audio();radioAudio.preload='auto';
+  mp3Gain=actx.createGain();mp3Gain.gain.value=.7;mp3Gain.connect(master);
+  mp3Source=actx.createMediaElementSource(radioAudio);mp3Source.connect(mp3Gain);
+  radioAudio.addEventListener('ended',()=>{const st=STATIONS[stationIdx];
+    if(st&&st.mp3){mp3TrackIdx=(mp3TrackIdx+1)%st.tracks.length;playMp3Track(mp3TrackIdx);}});
+  if(STATIONS[stationIdx].mp3)playMp3Track(mp3TrackIdx);
 }
+function playMp3Track(idx){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
+  mp3TrackIdx=idx;const tr=st.tracks[idx];radioAudio.src=tr.file;radioAudio.currentTime=0;
+  radioAudio.play().catch(()=>{});if(DOM.npName)DOM.npName.textContent=tr.title;}
+function resumeMp3(){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
+  if(radioAudio.src)radioAudio.play().catch(()=>{});else playMp3Track(mp3TrackIdx);
+  if(DOM.npName)DOM.npName.textContent=st.tracks[mp3TrackIdx].title;}
+function stopMp3(){if(radioAudio)radioAudio.pause();}
 function env(g,t,a,peak,dec){g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(.001,t+a+dec);}
 function noiseHit(t,dur,type,freq,peak,dest){const s=actx.createBufferSource();s.buffer=noiseBuf;
   const f=actx.createBiquadFilter();f.type=type;f.frequency.value=freq;const g=actx.createGain();
@@ -1995,12 +2014,14 @@ function resetCar(){car.position.set(0,0,0);vel.set(0,0,0);carAngle=0;shake=0;ca
 function toggleMute(){muted=!muted;
   if(master)master.gain.setTargetAtTime(muted?0:.85,actx.currentTime,.05);
   DOM.soundChip.innerHTML=muted?'&#128263; SOUND AUS &nbsp;[M]':'&#127925; SOUND AN &nbsp;[M] &nbsp;&#183;&nbsp; <b>[Y] HANDY</b>';}
-function cycleRadio(){stationIdx=(stationIdx+1)%STATIONS.length;
+function cycleRadio(){stopMp3();stationIdx=(stationIdx+1)%STATIONS.length;
   const st=STATIONS[stationIdx];curBpm=st.bpm||112;
-  if(actx){sfxStatic();if(st.bpm)setTimeout(sfxJingle,120);}
+  if(actx){sfxStatic();if(st.bpm||st.mp3)setTimeout(sfxJingle,120);}
   DOM.radioChip.innerHTML='&#128251; <b>'+st.name+'</b> &nbsp;&#8226;&nbsp; '+st.tag+' &nbsp;[TAB]';
-  if(DOM.npName)DOM.npName.textContent=st.bpm?SONGS[st.name][songIdx%5]:'— AUS —';
+  if(st.mp3){resumeMp3();}
+  else if(DOM.npName)DOM.npName.textContent=st.bpm?SONGS[st.name][songIdx%5]:'— AUS —';
   if(st.bpm&&st.bassMode!==6)djSay('Du hörst '+st.name+'. '+st.tag+'.');
+  if(st.mp3)djSay('Du hörst '+st.name+'. '+st.tag+'.');
 }
 
 /* ============ PHONE MENU ============ */
