@@ -220,21 +220,20 @@ transform:skewX(-14deg);overflow:hidden}
 #loadBarInner{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--gold));
 box-shadow:0 0 12px var(--cyan);transition:width .25s ease-out}
 #loadLabel{font:600 13px 'Chakra Petch';letter-spacing:2px;color:#9fb2c8;text-shadow:1px 1px 0 #000}
-body.mobile #minimapWrap{transform:scale(.7);transform-origin:left bottom;margin-left:env(safe-area-inset-left);bottom:calc(260px + env(safe-area-inset-bottom))}
-/* Laufmodus: der linke Analog-Stick liegt genau im alten Minimap-Bereich (unten links) -> Minimap höher setzen und etwas verkleinern, damit sie frei bleibt */
-body.mobile.onfoot #minimapWrap{bottom:calc(222px + env(safe-area-inset-bottom));transform:scale(.58);transform-origin:left bottom}
-/* Tacho und Minimap kämpften beide um die untere Bildschirmhälfte und überlappten sich -> Tacho komplett weg von der Minimap, stattdessen oben rechts unter Geld/Uhr */
-body.mobile:not(.onfoot) #speedo{transform:scale(.7);transform-origin:right top;margin-right:env(safe-area-inset-right);
-  top:calc(190px + env(safe-area-inset-top));bottom:auto;right:calc(12px + env(safe-area-inset-right))}
 body.mobile #hint,body.mobile #controlsPanel{display:none}
 body.mobile #topRight{padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right)}
 body.mobile #navi{margin-top:env(safe-area-inset-top);margin-left:env(safe-area-inset-left)}
 #touchControls{position:fixed;inset:0;z-index:40;display:none;pointer-events:none}
 body.mobile #touchControls{display:block}
 .tcBtn{position:fixed;display:flex;align-items:center;justify-content:center;border-radius:50%;
-background:rgba(10,15,28,.58);border:2px solid rgba(255,255,255,.35);color:#fff;text-shadow:1px 1px 0 #000;
-font:700 13px 'Chakra Petch';letter-spacing:1px;user-select:none;-webkit-user-select:none;touch-action:none;pointer-events:auto}
-.tcBtn.on{filter:brightness(1.6);box-shadow:0 0 18px currentColor}
+background:radial-gradient(circle at 50% 35%,rgba(30,42,68,.72),rgba(8,12,24,.82));
+border:2px solid currentColor;color:rgba(255,255,255,.72);text-shadow:0 1px 3px rgba(0,0,0,.9);
+box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);
+-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+font:700 13px 'Chakra Petch';letter-spacing:1px;user-select:none;-webkit-user-select:none;touch-action:none;pointer-events:auto;
+transition:transform .08s,box-shadow .12s,background .12s}
+.tcBtn.on{transform:scale(.93);background:radial-gradient(circle at 50% 35%,rgba(60,80,120,.85),rgba(14,20,38,.9));
+box-shadow:0 0 22px currentColor,inset 0 0 14px rgba(255,255,255,.18)}
 #tcLeft{left:calc(18px + env(safe-area-inset-left));bottom:calc(104px + env(safe-area-inset-bottom));width:78px;height:78px;font-size:30px}
 #tcRight{left:calc(100px + env(safe-area-inset-left));bottom:calc(104px + env(safe-area-inset-bottom));width:78px;height:78px;font-size:30px}
 #tcHandbrake{left:calc(65px + env(safe-area-inset-left));bottom:calc(16px + env(safe-area-inset-bottom));width:66px;height:66px;font-size:14px;border-color:var(--gold);color:var(--gold)}
@@ -243,7 +242,10 @@ font:700 13px 'Chakra Petch';letter-spacing:1px;user-select:none;-webkit-user-se
 #tcNitro{right:calc(30px + env(safe-area-inset-right));bottom:calc(210px + env(safe-area-inset-bottom));width:64px;height:64px;font-size:12px;border-color:var(--cyan);color:var(--cyan)}
 #tcAction{left:calc(22px + env(safe-area-inset-left));bottom:calc(192px + env(safe-area-inset-bottom));width:58px;height:58px;font-size:11px;border-color:#fff;color:#fff}
 #tcJoyBase{position:fixed;display:none;left:calc(26px + env(safe-area-inset-left));bottom:calc(26px + env(safe-area-inset-bottom));
-  width:132px;height:132px;border-radius:50%;background:rgba(10,15,28,.5);border:2px solid rgba(255,255,255,.35);
+  width:132px;height:132px;border-radius:50%;border:2px solid rgba(255,255,255,.28);
+  background:radial-gradient(circle at 50% 50%,rgba(20,28,48,.6),rgba(8,12,24,.72));
+  box-shadow:0 4px 16px rgba(0,0,0,.45),inset 0 0 22px rgba(0,0,0,.5);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
   pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;z-index:40}
 #tcJoyKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;
   background:rgba(255,255,255,.28);border:2px solid rgba(255,255,255,.65);transform:translate(-50%,-50%);
@@ -254,7 +256,10 @@ body.onfoot #tcHandbrake,body.onfoot #tcNitro{display:none}
 body.mobile.onfoot #tcJoyBase{display:block}
 body.onfoot #speedo{display:none}
 #tcLookBase{position:fixed;display:none;right:calc(26px + env(safe-area-inset-right));bottom:calc(26px + env(safe-area-inset-bottom));
-  width:120px;height:120px;border-radius:50%;background:rgba(10,15,28,.5);border:2px solid rgba(255,255,255,.3);
+  width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,255,255,.28);
+  background:radial-gradient(circle at 50% 50%,rgba(20,28,48,.6),rgba(8,12,24,.72));
+  box-shadow:0 4px 16px rgba(0,0,0,.45),inset 0 0 22px rgba(0,0,0,.5);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
   pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;z-index:40}
 #tcLookKnob{position:absolute;left:50%;top:50%;width:50px;height:50px;border-radius:50%;
   background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.55);transform:translate(-50%,-50%);
@@ -263,29 +268,44 @@ body.onfoot #speedo{display:none}
   font-size:18px;color:rgba(255,255,255,.6)}
 #tcLookKnob.on{background:rgba(255,94,58,.5);border-color:var(--hot)}
 body.mobile.onfoot #tcLookBase{display:block}
-/* Hochkant-Handys: Top-HUD (Navi/Chips) verdeckt sonst zu viel vom Spielfeld */
-/* Immer aus auf Handys: rein dekorative Anzeigen, die nur Platz wegnehmen */
-body.mobile #soundChip,body.mobile #npChip,body.mobile #topspd{display:none}
-/* Menü-Button lag unter der Geld/Uhr-Anzeige oben rechts -> auf Mobile darunter setzen */
-body.mobile #tcMenuBtn{top:calc(88px + env(safe-area-inset-top))}
-body.mobile #tcMenuPanel{top:calc(138px + env(safe-area-inset-top))}
-/* Missions-Banner erschien automatisch über der Navi-Box -> auf Mobile tiefer und schmaler */
-body.mobile #mission{top:calc(184px + env(safe-area-inset-top));font-size:15px;padding:7px 16px}
-body.mobile:not(.onfoot) #speedo{transform:scale(.6)}
-/* Orientierung wird zusätzlich per JS erkannt (siehe syncOrientation()) statt nur über @media (orientation:) --
-   manche mobilen Browser aktualisieren die reine CSS-Media-Query nach einem Rotationswechsel nicht zuverlässig,
-   wodurch Elemente nach hochkant->quer->hochkant fälschlich in der Quer-Skalierung hängen bleiben. */
-body.mobile.is-portrait #navi{width:min(66vw,280px)}
+/* ===== MOBILE HUD — Zonen-Layout =====
+   Der Tacho war ursprünglich ein ~340px breiter Querblock (150px Rundinstrument + 176px Balken)
+   und passte damit auf keinem Handy-Display irgendwohin, ohne etwas zu überlagern. Auf Mobile
+   wird das Rundinstrument daher ausgeblendet und der Rest zu einem schmalen vertikalen Block
+   gestapelt — dadurch braucht nichts mehr per transform:scale() zurechtgestaucht zu werden.
+   Zonen: oben-links Navi+Chips · oben-rechts Geld/Uhr+Menü+Tacho · unten-links Minimap · unten Buttons.
+   Orientierung kommt per JS (syncOrientation()) statt @media(orientation:), weil manche mobilen
+   Browser die reine CSS-Query nach hochkant->quer->hochkant nicht zuverlässig aktualisieren. */
+body.mobile #soundChip,body.mobile #npChip,body.mobile #topspd,body.mobile #mmLabel,
+body.mobile #rpmCanvas,body.mobile #refuelMsg{display:none}
+body.mobile #speedo{flex-direction:column;align-items:flex-end;gap:5px;bottom:auto;
+  top:calc(96px + env(safe-area-inset-top));right:calc(14px + env(safe-area-inset-right));transform:none}
+body.mobile #pedals{gap:5px}
+body.mobile .bar{width:104px;height:9px}
+body.mobile .barLabel{font-size:8px;letter-spacing:1.2px}
+body.mobile #speedNum{font-size:34px}
+body.mobile #speedUnit{font-size:9px;letter-spacing:1.5px}
+body.mobile #tcMenuBtn{top:auto;bottom:calc(232px + env(safe-area-inset-bottom));right:calc(16px + env(safe-area-inset-right))}
+body.mobile #tcMenuPanel{top:auto;bottom:calc(286px + env(safe-area-inset-bottom));right:calc(16px + env(safe-area-inset-right))}
+body.mobile #mission{font-size:14px;padding:7px 14px;max-width:76vw;overflow:hidden;text-overflow:ellipsis}
+body.mobile #minimapWrap{margin-left:env(safe-area-inset-left);transform-origin:left bottom}
+body.mobile.is-portrait #navi{width:min(60vw,240px)}
 body.mobile.is-portrait #chips{transform:scale(.72);transform-origin:top left}
 body.mobile.is-portrait #topRight{transform:scale(.82);transform-origin:top right}
-body.mobile.is-landscape #navi{width:min(40vw,220px)}
-body.mobile.is-landscape #chips{transform:scale(.6);transform-origin:top left}
-body.mobile.is-landscape #topRight{transform:scale(.72);transform-origin:top right}
-body.mobile.is-landscape #mission{top:56px}
-/* Querformat hat kaum Höhe für die großen Fahr-Buttons -> ganzen Steuerkreuz-Cluster verkleinern und Minimap/Tacho eng darüber platzieren */
-body.mobile.is-landscape:not(.onfoot) #touchControls{transform:scale(.7);transform-origin:bottom center}
-body.mobile.is-landscape:not(.onfoot) #minimapWrap{bottom:calc(16px + env(safe-area-inset-bottom));transform:scale(.5);transform-origin:left bottom}
-body.mobile.is-landscape:not(.onfoot) #speedo{top:calc(140px + env(safe-area-inset-top));transform:scale(.32);transform-origin:right top}
+body.mobile.is-portrait #mission{top:calc(232px + env(safe-area-inset-top))}
+body.mobile.is-portrait #minimapWrap{transform:scale(.62);bottom:calc(214px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #navi{width:min(36vw,200px)}
+body.mobile.is-landscape #chips{transform:scale(.58);transform-origin:top left}
+body.mobile.is-landscape #topRight{transform:scale(.7);transform-origin:top right}
+body.mobile.is-landscape #mission{top:calc(150px + env(safe-area-inset-top))}
+body.mobile.is-landscape #speedo{top:calc(74px + env(safe-area-inset-top));transform:scale(.8);transform-origin:right top}
+body.mobile.is-landscape #minimapWrap{transform:scale(.46);bottom:calc(4px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcMenuBtn{bottom:auto;top:calc(16px + env(safe-area-inset-top));right:calc(74px + env(safe-area-inset-right))}
+body.mobile.is-landscape #tcMenuPanel{bottom:auto;top:calc(66px + env(safe-area-inset-top))}
+body.mobile.is-landscape:not(.onfoot) #touchControls{transform:scale(.72);transform-origin:bottom center}
+/* Laufmodus: unten links sitzt der Lauf-Joystick -> Minimap nach oben rechts, wo der Tacho ausgeblendet ist */
+body.mobile.onfoot #minimapWrap{left:auto;bottom:auto;right:calc(14px + env(safe-area-inset-right));
+  top:calc(92px + env(safe-area-inset-top));transform-origin:right top;margin-left:0}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:none;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
