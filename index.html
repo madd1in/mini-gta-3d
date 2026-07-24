@@ -362,7 +362,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
     <h3>STEUERUNG</h3>
     <kbd>W</kbd><kbd>S</kbd> Gas &nbsp; <kbd>A</kbd><kbd>D</kbd> Lenken &nbsp; <kbd>SPACE</kbd> Drift<br>
     <b style="color:var(--hot)">LUFT: W/S Salto &nbsp; A/D Rolle</b><br>
-    <kbd>R</kbd> Rennen &nbsp; <kbd>0</kbd> Reset &nbsp; <kbd>Y</kbd> Handy &nbsp; <kbd>X</kbd> Bestechen<br>
+    <kbd>R</kbd> Rennen &nbsp; <kbd>Z</kbd> Heat &nbsp; <kbd>0</kbd> Reset &nbsp; <kbd>Y</kbd> Handy &nbsp; <kbd>X</kbd> Bestechen<br>
     <kbd>L</kbd> Licht &nbsp; <kbd>SHIFT</kbd> Nitro &nbsp; <kbd>B</kbd> Bullet &nbsp; <kbd>E</kbd> Tanken<br>
     <kbd>G</kbd> Tanke &nbsp; <kbd>F</kbd> Kino &nbsp; <kbd>K</kbd> +6h &nbsp; <kbd>P</kbd> Wetter &nbsp; <kbd>TAB</kbd> Radio<br>
     <b style="color:#c77dff">CHEATS: lunar / rocket / wrench / felony / richie / frost</b>
@@ -394,7 +394,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
     <div id="naviDist">&#8212;</div><div id="naviText">Navigation bereit &#8212; warte auf Auftrag</div></div></div>
   <div id="vehicleBtn">AUSSTEIGEN</div>
   <div id="chips">
-    <div class="chip" id="jobChip">KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[R]</b> RENNEN</div>
+    <div class="chip" id="jobChip">KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT</div>
     <div class="chip" id="raceChip">&#127937; <b id="racePos">POS 1/4</b> &nbsp;&#183;&nbsp; <span id="raceCp">CP 0/0</span></div>
     <div class="chip" id="pkgChip">&#128230; PAKETE &nbsp;<b>0/10</b></div>
     <div class="chip" id="cheatChip">&#128273; <span id="cheatTxt"></span></div>
@@ -451,6 +451,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
   <div class="mBtn" id="mWeather">WETTER</div>
   <div class="mBtn" id="mMute">STUMM</div>
   <div class="mBtn" id="mStation">TANKE</div>
+  <div class="mBtn" id="mHeat">HEAT</div>
 </div>
 
 <script>
@@ -591,6 +592,8 @@ function djSay(text){if(djCd>0)return;djCd=8;
 let actx,master,musicG,musicLP,sfxG,engMaster,engOsc1,engOsc2,engFilter,engGain,driftGain,sirenOsc,sirenGain,delayNode,noiseBuf,muted=false,nextNote=0,seqStep=0,stationIdx=0;
 let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0;
 let lookX=0,lookY=0,walkX=0,walkY=0;
+let blobTex=null,blobMat=null,carBlob=null,pedBlob=null;
+let heatActive=false,heatTimer=0,heatPeak=0;
 const STATIONS=[
  {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
    {title:'NEON HEIST RUN',file:'radio/neon-heist-run.mp3'},
@@ -922,6 +925,17 @@ function getPlayerProgress(){
   const t=clamp(((car.position.x-a.x)*(b.x-a.x)+(car.position.z-a.z)*(b.z-a.z))/(sl*sl),0,1);
   return route.cum[si]+t*sl;
 }
+function startHeat(){
+  if(dead||onFoot){popup('HEAT NUR IM AUTO','red');return;}
+  if(heatActive){heatActive=false;popup('HEAT ABGEBROCHEN','red');
+    DOM.jobChip.innerHTML='KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT';return;}
+  heatActive=true;heatTimer=60;heatPeak=Math.max(3,Math.floor(wanted));
+  wanted=Math.max(wanted,3);
+  sfxStatic();showBigMsg('HEAT!');
+  popup('HEAT GESTARTET — 60s durchhalten!','red');
+  showMission('Halte die Fahndung 60 Sekunden — abschütteln = verloren!');
+  djSay('Alle Einheiten, Verfolgung aufgenommen.');
+}
 function startRace(){
   if(raceMode){endRace(false);return;}
   const p=randRoadPoint();setDestination(p.x,p.z);if(!route.active)return;
@@ -1057,6 +1071,25 @@ function makeEnvMap(){
       x.fillStyle=g;x.fillRect(0,0,64,64);}
     faces.push(c);}
   const ct=new THREE.CubeTexture(faces);ct.needsUpdate=true;return ct;
+}
+/* Kontaktschatten: auf Mobile ist QUALITY.shadows=false, dadurch wirft nichts einen Schatten und
+   alle Fahrzeuge/Fußgänger "schweben" sichtbar über der Straße. Ein weicher Blob unter jedem Objekt
+   kostet praktisch nichts und verankert sie optisch — auch auf Desktop eine Ergänzung zum harten Schatten. */
+function makeBlobTexture(){
+  const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
+  const g=x.createRadialGradient(64,64,4,64,64,62);
+  g.addColorStop(0,'rgba(0,0,0,.62)');g.addColorStop(.45,'rgba(0,0,0,.34)');
+  g.addColorStop(.78,'rgba(0,0,0,.10)');g.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle=g;x.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(c);
+}
+function makeBlobShadow(w,d,y,ownMat){
+  if(!blobTex)blobTex=makeBlobTexture();
+  if(!blobMat)blobMat=new THREE.MeshBasicMaterial({map:blobTex,transparent:true,depthWrite:false,
+    opacity:.85,blending:THREE.NormalBlending,fog:true});
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),ownMat?blobMat.clone():blobMat);
+  m.rotation.x=-Math.PI/2;m.position.y=y||.035;m.renderOrder=-1;m.frustumCulled=false;
+  return m;
 }
 function makeGroundTexture(){
   const S=QUALITY.groundTexSize||2048,cv=document.createElement('canvas');cv.width=cv.height=S;
@@ -1739,6 +1772,7 @@ function makeSimpleCar(colHex){
   const wg=new THREE.CylinderGeometry(.4,.4,.3,8),wm=new THREE.MeshLambertMaterial({color:0x0d0d0d});
   [[-1,1.35],[1,1.35],[-1,-1.35],[1,-1.35]].forEach(([x,z])=>{
     const w=new THREE.Mesh(wg,wm);w.rotation.z=Math.PI/2;w.position.set(x*bw/2*.98,.4,z);g.add(w);});
+  g.add(makeBlobShadow(bw*2.1,bl*1.35));
   return g;
 }
 function makeTrafficCar(){
@@ -1754,6 +1788,7 @@ function makeTrafficCar(){
     const wg=new THREE.CylinderGeometry(.42,.42,.34,12),wm=new THREE.MeshLambertMaterial({color:0x0d0d0d});
     [[-1.1,1.4],[1.1,1.4],[-1.1,-1.4],[1.1,-1.4]].forEach(([x,z])=>{
       const w=new THREE.Mesh(wg,wm);w.rotation.z=Math.PI/2;w.position.set(x,.42,z);g.add(w);});
+    g.add(makeBlobShadow(4.6,8.2));
   }else{
     g=makeSimpleCar(cols[Math.floor(Math.random()*cols.length)]);
   }
@@ -1803,6 +1838,7 @@ function makeNPC(){
   const umbCols=[0xff4444,0x4466ff,0xffd400,0x22cc55,0xff44dd,0xffffff];
   const umb=new THREE.Mesh(new THREE.ConeGeometry(.55,.35,8),new THREE.MeshLambertMaterial({color:umbCols[Math.floor(Math.random()*umbCols.length)]}));
   umb.position.y=2.2;umb.visible=false;g.add(umb);
+  g.add(makeBlobShadow(1.5,1.5,.03));
   g.position.set(rnd(-CITY,CITY),0,rnd(-CITY,CITY));
   g.userData={dir:new THREE.Vector3(rnd(-1,1),0,rnd(-1,1)).normalize(),speed:rnd(1.5,3.5),timer:rnd(0,5),phase:Math.random()*6,down:false,jumpT:0,legL,legR,armL,armR,umb,handL,handR,shoeL,shoeR};
   scene.add(g);return g;
@@ -1826,6 +1862,7 @@ function makePolice(){
   const wg=new THREE.CylinderGeometry(.42,.42,.34,12),wm=new THREE.MeshLambertMaterial({color:0x0d0d0d});
   [[-1.1,1.4],[1.1,1.4],[-1.1,-1.4],[1.1,-1.4]].forEach(([x,z])=>{
     const wh=new THREE.Mesh(wg,wm);wh.rotation.z=Math.PI/2;wh.position.set(x,.42,z);g.add(wh);});
+  g.add(makeBlobShadow(4.3,7.8));
   const a=rnd(0,Math.PI*2),d=60;
   g.position.set(car.position.x+Math.cos(a)*d,0,car.position.z+Math.sin(a)*d);
   g.userData={speed:0,head:Math.random()*6,mr,mb,pl,flee:false};
@@ -2544,7 +2581,7 @@ function cacheDOM(){
     'money','wanted','clock','topspd','refuelMsg','pkgChip','driftEl','jackMsg','slowEl','minimap','title',
     'loadScreen','loadLabel','tcLeft','tcRight','tcGas','tcBrake','tcNitro','tcHandbrake','tcAction','vehicleBtn',
     'tcJoyBase','tcJoyKnob','tcLookBase','tcLookKnob',
-    'tcMenuBtn','tcMenuPanel','mHorn','mRadio','mMap','mRace','mBullet','mLights','mBribe','mPaint','mGlow','mWeather','mMute','mStation'];
+    'tcMenuBtn','tcMenuPanel','mHorn','mRadio','mMap','mRace','mBullet','mLights','mBribe','mPaint','mGlow','mWeather','mMute','mStation','mHeat'];
   for(const id of ids)DOM[id]=document.getElementById(id);
   DOM.loadBar=document.getElementById('loadBarInner');
 }
@@ -2678,6 +2715,10 @@ async function init(){
   car=buildPlayerCar(CARS[currentCar].style,CARS[currentCar].col);
   scene.add(car);
   ped=buildPedestrian();
+  /* Spieler-Schatten liegen in Weltkoordinaten (nicht als Kind), damit sie beim Salto/Rollen
+     flach am Boden bleiben statt mit dem Auto zu kippen. */
+  carBlob=makeBlobShadow(4.6,8.4,.035,true);scene.add(carBlob);
+  pedBlob=makeBlobShadow(1.6,1.6,.03,true);pedBlob.visible=false;scene.add(pedBlob);
   setLoad(66,'Stra\u00DFenausstattung\u2026');await nextFrame();
   buildBlitzers();buildRamps();buildBoosters();buildCoins();buildDestination();buildSigns();
   buildFountains();buildStation();buildRain();buildHorizon();buildHeli();buildBoats();
@@ -2728,7 +2769,8 @@ async function init(){
         popup(weather===0?'SONNE \u2600':weather===1?'REGEN \uD83C\uDF27':'SCHNEE \u2744','cyan');}
       if(e.code==='KeyJ')enterVehicle();
       if(e.code==='KeyV')exitVehicle();
-      if(e.code==='KeyT'&&!dead&&!onFoot){newJob();popup('NEUER AUFTRAG','');}}
+      if(e.code==='KeyT'&&!dead&&!onFoot){newJob();popup('NEUER AUFTRAG','');}
+      if(e.code==='KeyZ')startHeat();}
     keys[e.code]=true;});
   document.addEventListener('keyup',e=>keys[e.code]=false);
   document.addEventListener('mousemove',e=>{if(mouseLocked&&!cinematic){camAngle-=e.movementX*.003;camPitch=clamp(camPitch+e.movementY*.003,.06,1.1);}});
@@ -2761,6 +2803,7 @@ async function init(){
   bindTap(DOM.mWeather,mAction(()=>{weather=(weather+1)%3;popup(weather===0?'SONNE \u2600':weather===1?'REGEN \uD83C\uDF27':'SCHNEE \u2744','cyan');}));
   bindTap(DOM.mMute,mAction(()=>toggleMute()));
   bindTap(DOM.mStation,mAction(()=>{if(!dead)navToStation();}));
+  bindTap(DOM.mHeat,mAction(()=>startHeat()));
   DOM.title.addEventListener('click',()=>{
     DOM.title.style.display='none';gameStarted=true;
     onFoot=true;pedPos.set(0,0,0);pedAngle=0;
@@ -3071,6 +3114,25 @@ function update(dt){
   if(fareActive){fareTimer=Math.max(0,fareTimer-sdt);
     if(hudCd<=0){const bonus=Math.round(jobPayout*.7*clamp(fareTimer/fareBudget,0,1));
       DOM.jobChip.innerHTML='\uD83D\uDC64 FAHRGAST \u2014 Bonus: <b>$'+bonus+'</b>';}}
+  /* HEAT-HERAUSFORDERUNG: freiwillig Fahndung ziehen und sie halten. Belohnung skaliert mit dem
+     h\u00F6chsten gehaltenen Fahndungslevel \u2014 absch\u00FCtteln z\u00E4hlt hier als Niederlage, nicht als Erfolg. */
+  if(heatActive){
+    heatTimer=Math.max(0,heatTimer-dt);
+    heatPeak=Math.max(heatPeak,Math.floor(wanted));
+    if(dead){heatActive=false;popup('HEAT ABGEBROCHEN','red');}
+    else if(Math.floor(wanted)<1){heatActive=false;
+      popup('HEAT VERLOREN \u2014 Fahndung abgesch\u00FCttelt','red');
+      showMission('Heat-Herausforderung gescheitert \u2014 du musstest die Fahndung HALTEN');
+      DOM.jobChip.innerHTML='KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT';}
+    else if(heatTimer<=0){heatActive=false;
+      const reward=4000+heatPeak*3000;money+=reward;bump(DOM.money);sfxArrive();
+      popup('HEAT \u00DCBERSTANDEN +$'+reward.toLocaleString('en-US'),'mint');
+      showBigMsg('SURVIVOR');
+      for(let k=0;k<4;k++)setTimeout(()=>fireworksBurst(car.position.x+rnd(-40,40),rnd(50,80),car.position.z+rnd(-40,40)),k*280);
+      DOM.jobChip.innerHTML='KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT';}
+    else if(hudCd<=0){
+      DOM.jobChip.innerHTML='\uD83D\uDD25 HEAT <b>'+Math.ceil(heatTimer)+'s</b> &nbsp;&#183;&nbsp; Peak <b>'+heatPeak+'\u2605</b>';}
+  }
   if(fountainPS){for(const f of fountains)if(Math.random()<sdt*60)
       fountainPS.spawn(f.x+rnd(-.3,.3),2.8,f.z+rnd(-.3,.3),rnd(-1.5,1.5),rnd(3,5),rnd(-1.5,1.5),.8,.5,.75,.95);
     fountainPS.update(sdt);}
@@ -3149,6 +3211,23 @@ function update(dt){
      DOM.vehicleBtn.classList.toggle('onfoot',onFoot);
      document.body.classList.toggle('onfoot',onFoot);
      if(!onFoot){walkX=0;walkY=0;lookX=0;lookY=0;}}}
+  /* Kontaktschatten nachführen: in der Luft wird der Blob größer und blasser (Höhen-Feedback beim Sprung).
+     Spieler-Blobs haben eine eigene Material-Instanz, sonst würde die Opacity-Animation über das
+     geteilte Material auch alle Verkehrs-/NPC-Schatten mitziehen. */
+  if(carBlob){
+    carBlob.visible=!onFoot&&car.visible;
+    if(carBlob.visible){
+      const f=clamp(Math.max(0,carY)/7,0,1);
+      carBlob.position.set(car.position.x,.035,car.position.z);
+      carBlob.rotation.z=-carAngle;
+      const s=1+f*.8;carBlob.scale.set(s,s,1);
+      carBlob.material.opacity=.85*(1-f*.7);
+    }
+  }
+  if(pedBlob){
+    pedBlob.visible=onFoot&&ped.visible;
+    if(pedBlob.visible)pedBlob.position.set(pedPos.x,.03,pedPos.z);
+  }
   updateNavi();updateHUD(dt,dayT);drawMinimap();
 }
 init().catch(e=>console.error('Init-Fehler:',e));
