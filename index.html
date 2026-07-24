@@ -248,6 +248,23 @@ body.onfoot #tcLeft,body.onfoot #tcRight,body.onfoot #tcGas,body.onfoot #tcBrake
 body.onfoot #tcHandbrake,body.onfoot #tcNitro{display:none}
 body.mobile.onfoot #tcJoyBase{display:block}
 body.onfoot #speedo{display:none}
+#tcLookBase{position:fixed;display:none;right:calc(26px + env(safe-area-inset-right));bottom:calc(26px + env(safe-area-inset-bottom));
+  width:120px;height:120px;border-radius:50%;background:rgba(10,15,28,.5);border:2px solid rgba(255,255,255,.3);
+  pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;z-index:40}
+#tcLookKnob{position:absolute;left:50%;top:50%;width:50px;height:50px;border-radius:50%;
+  background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.55);transform:translate(-50%,-50%);
+  pointer-events:none;transition:background .12s,border-color .12s}
+#tcLookKnob::after{content:'\21BB';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:rgba(255,255,255,.6)}
+#tcLookKnob.on{background:rgba(255,94,58,.5);border-color:var(--hot)}
+body.mobile.onfoot #tcLookBase{display:block}
+/* Hochkant-Handys: Top-HUD (Navi/Chips) verdeckt sonst zu viel vom Spielfeld */
+@media (orientation:portrait){
+  body.mobile #navi{width:min(72vw,300px)}
+  body.mobile #chips{transform:scale(.82);transform-origin:top left}
+  body.mobile #topRight{transform:scale(.88);transform-origin:top right}
+  body.mobile #soundChip{display:none}
+}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:flex;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
@@ -366,6 +383,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
   <div class="tcBtn" id="tcLeft">&#9664;</div>
   <div class="tcBtn" id="tcRight">&#9654;</div>
   <div id="tcJoyBase"><div id="tcJoyKnob"></div></div>
+  <div id="tcLookBase"><div id="tcLookKnob"></div></div>
   <div class="tcBtn" id="tcHandbrake">HB</div>
   <div class="tcBtn" id="tcAction">AUS/EIN</div>
   <div class="tcBtn" id="tcNitro">NOS</div>
@@ -525,6 +543,7 @@ function djSay(text){if(djCd>0)return;djCd=8;
 /* ============ AUDIO ============ */
 let actx,master,musicG,musicLP,sfxG,engMaster,engOsc1,engOsc2,engFilter,engGain,driftGain,sirenOsc,sirenGain,delayNode,noiseBuf,muted=false,nextNote=0,seqStep=0,stationIdx=0;
 let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0;
+let lookX=0,lookY=0;
 const STATIONS=[
  {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
    {title:'NEON HEIST RUN',file:'radio/neon-heist-run.mp3'},
@@ -2476,7 +2495,7 @@ function cacheDOM(){
     'naviText','speedNum','nitroFill','nitroBar','fuelFill','fuelBar','speedFX','speedLines','anaFlare','slowFX',
     'money','wanted','clock','topspd','refuelMsg','pkgChip','driftEl','jackMsg','slowEl','minimap','title',
     'loadScreen','loadLabel','tcLeft','tcRight','tcGas','tcBrake','tcNitro','tcHandbrake','tcAction','vehicleBtn',
-    'tcJoyBase','tcJoyKnob',
+    'tcJoyBase','tcJoyKnob','tcLookBase','tcLookKnob',
     'tcMenuBtn','tcMenuPanel','mHorn','mRadio','mMap','mRace','mBullet','mLights','mBribe','mPaint','mGlow','mWeather','mMute','mStation'];
   for(const id of ids)DOM[id]=document.getElementById(id);
   DOM.loadBar=document.getElementById('loadBarInner');
@@ -2539,6 +2558,27 @@ function bindJoystick(base,knob){
   const end=e=>{if(!active)return;e.preventDefault();active=false;
     knob.classList.remove('on');knob.style.transform='translate(-50%,-50%)';
     setJoyKeys(0,0,maxR,false);};
+  base.addEventListener('pointerdown',start);
+  base.addEventListener('pointermove',move);
+  base.addEventListener('pointerup',end);
+  base.addEventListener('pointercancel',end);
+  base.addEventListener('contextmenu',e=>e.preventDefault());
+}
+function bindLookJoystick(base,knob){
+  if(!base||!knob)return;
+  let active=false,cx=0,cy=0,maxR=1;
+  const move=e=>{if(!active)return;e.preventDefault();
+    let dx=e.clientX-cx,dy=e.clientY-cy;const d=Math.hypot(dx,dy);
+    if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR;}
+    knob.style.transform='translate(calc(-50% + '+dx+'px), calc(-50% + '+dy+'px))';
+    const mag=d/maxR;if(mag<.15){lookX=0;lookY=0;}else{lookX=dx/maxR;lookY=dy/maxR;}};
+  const start=e=>{e.preventDefault();const r=base.getBoundingClientRect();
+    cx=r.left+r.width/2;cy=r.top+r.height/2;maxR=r.width/2;
+    active=true;knob.classList.add('on');
+    try{base.setPointerCapture(e.pointerId);}catch(err){}
+    move(e);};
+  const end=e=>{if(!active)return;e.preventDefault();active=false;
+    knob.classList.remove('on');knob.style.transform='translate(-50%,-50%)';lookX=0;lookY=0;};
   base.addEventListener('pointerdown',start);
   base.addEventListener('pointermove',move);
   base.addEventListener('pointerup',end);
@@ -2659,6 +2699,7 @@ async function init(){
   bindTouch(DOM.tcGas,'KeyW');bindTouch(DOM.tcBrake,'KeyS');
   bindTouch(DOM.tcNitro,'ShiftLeft');bindTouch(DOM.tcHandbrake,'Space');
   bindJoystick(DOM.tcJoyBase,DOM.tcJoyKnob);
+  bindLookJoystick(DOM.tcLookBase,DOM.tcLookKnob);
   bindTap(DOM.tcAction,()=>{if(onFoot)enterVehicle();else exitVehicle();});
   DOM.vehicleBtn.addEventListener('click',()=>{if(onFoot)enterVehicle();else exitVehicle();});
   bindTap(DOM.tcMenuBtn,()=>{DOM.tcMenuPanel.classList.toggle('open');});
@@ -3027,6 +3068,7 @@ function update(dt){
     s.line.geometry.attributes.position.needsUpdate=true;}
   if(cinematic)camAngle+=dt*.3;
   else if(!mouseLocked&&!onFoot)camAngle*=Math.max(0,1-3*dt);
+  if(onFoot&&(lookX||lookY))camAngle-=lookX*2.8*dt;
   shake=Math.max(0,shake-dt*1.6);
   const focusPos=onFoot?pedPos:car.position;
   const orbitAngle=onFoot?camAngle:(carAngle+camAngle);
@@ -3060,7 +3102,7 @@ function update(dt){
    if(DOM.vehicleBtn._last!==label){DOM.vehicleBtn._last=label;DOM.vehicleBtn.textContent=label;
      DOM.vehicleBtn.classList.toggle('onfoot',onFoot);
      document.body.classList.toggle('onfoot',onFoot);
-     if(!onFoot)setJoyKeys(0,0,1,false);}}
+     if(!onFoot){setJoyKeys(0,0,1,false);lookX=0;lookY=0;}}}
   updateNavi();updateHUD(dt,dayT);drawMinimap();
 }
 init().catch(e=>console.error('Init-Fehler:',e));
