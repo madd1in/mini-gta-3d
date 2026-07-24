@@ -220,6 +220,8 @@ transform:skewX(-14deg);overflow:hidden}
 box-shadow:0 0 12px var(--cyan);transition:width .25s ease-out}
 #loadLabel{font:600 13px 'Chakra Petch';letter-spacing:2px;color:#9fb2c8;text-shadow:1px 1px 0 #000}
 body.mobile #minimapWrap{transform:scale(.7);transform-origin:left bottom;margin-left:env(safe-area-inset-left);margin-bottom:env(safe-area-inset-bottom)}
+/* Laufmodus: der linke Analog-Stick liegt genau im alten Minimap-Bereich (unten links) -> Minimap höher setzen und etwas verkleinern, damit sie frei bleibt */
+body.mobile.onfoot #minimapWrap{bottom:calc(222px + env(safe-area-inset-bottom));transform:scale(.58);transform-origin:left bottom}
 body.mobile #speedo{transform:scale(.76);transform-origin:right bottom;margin-right:env(safe-area-inset-right);margin-bottom:env(safe-area-inset-bottom)}
 body.mobile #hint,body.mobile #controlsPanel{display:none}
 body.mobile #topRight{padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right)}
@@ -543,7 +545,7 @@ function djSay(text){if(djCd>0)return;djCd=8;
 /* ============ AUDIO ============ */
 let actx,master,musicG,musicLP,sfxG,engMaster,engOsc1,engOsc2,engFilter,engGain,driftGain,sirenOsc,sirenGain,delayNode,noiseBuf,muted=false,nextNote=0,seqStep=0,stationIdx=0;
 let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0;
-let lookX=0,lookY=0;
+let lookX=0,lookY=0,walkX=0,walkY=0;
 const STATIONS=[
  {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
    {title:'NEON HEIST RUN',file:'radio/neon-heist-run.mp3'},
@@ -2527,21 +2529,6 @@ function bindTouch(el,code){
   el.addEventListener('pointercancel',off);
   el.addEventListener('contextmenu',e=>e.preventDefault());
 }
-function setJoyKeys(dx,dy,maxR,active){
-  keys.KeyW=keys.KeyA=keys.KeyS=keys.KeyD=false;
-  if(!active||!maxR)return;
-  const mag=Math.hypot(dx,dy)/maxR;
-  if(mag<.22)return;
-  const deg=(Math.atan2(-dy,dx)*180/Math.PI+360)%360;
-  if(deg>=337.5||deg<22.5)keys.KeyD=true;
-  else if(deg<67.5){keys.KeyD=true;keys.KeyW=true;}
-  else if(deg<112.5)keys.KeyW=true;
-  else if(deg<157.5){keys.KeyA=true;keys.KeyW=true;}
-  else if(deg<202.5)keys.KeyA=true;
-  else if(deg<247.5){keys.KeyA=true;keys.KeyS=true;}
-  else if(deg<292.5)keys.KeyS=true;
-  else{keys.KeyD=true;keys.KeyS=true;}
-}
 function bindJoystick(base,knob){
   if(!base||!knob)return;
   let active=false,cx=0,cy=0,maxR=1;
@@ -2549,15 +2536,14 @@ function bindJoystick(base,knob){
     let dx=e.clientX-cx,dy=e.clientY-cy;const d=Math.hypot(dx,dy);
     if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR;}
     knob.style.transform='translate(calc(-50% + '+dx+'px), calc(-50% + '+dy+'px))';
-    setJoyKeys(dx,dy,maxR,true);};
+    const mag=d/maxR;if(mag<.12){walkX=0;walkY=0;}else{walkX=dx/maxR;walkY=dy/maxR;}};
   const start=e=>{e.preventDefault();const r=base.getBoundingClientRect();
     cx=r.left+r.width/2;cy=r.top+r.height/2;maxR=r.width/2;
     active=true;knob.classList.add('on');
     try{base.setPointerCapture(e.pointerId);}catch(err){}
     move(e);};
   const end=e=>{if(!active)return;e.preventDefault();active=false;
-    knob.classList.remove('on');knob.style.transform='translate(-50%,-50%)';
-    setJoyKeys(0,0,maxR,false);};
+    knob.classList.remove('on');knob.style.transform='translate(-50%,-50%)';walkX=0;walkY=0;};
   base.addEventListener('pointerdown',start);
   base.addEventListener('pointermove',move);
   base.addEventListener('pointerup',end);
@@ -2884,21 +2870,23 @@ function update(dt){
     if(ugIdx>0)ugLight.intensity=1.4*(0.7+0.6*beatPulse);
   }
   else if(!dead&&onFoot){
-    const thr=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0);
-    const strafe=((keys.KeyD||keys.ArrowRight)?1:0)-((keys.KeyA||keys.ArrowLeft)?1:0);
+    let thr=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0);
+    let strafe=((keys.KeyD||keys.ArrowRight)?1:0)-((keys.KeyA||keys.ArrowLeft)?1:0);
+    let inputMag=1;
+    if(walkX||walkY){inputMag=Math.min(1,Math.hypot(walkX,walkY));thr=-walkY;strafe=walkX;}
     let walking=false;
     if(thr||strafe){
       camera.getWorldDirection(camFwd);camFwd.y=0;
       if(camFwd.lengthSq()<1e-6)camFwd.set(0,0,1);else camFwd.normalize();
       camRight.crossVectors(camFwd,camera.up).normalize();
       const mx=camFwd.x*thr+camRight.x*strafe,mz=camFwd.z*thr+camRight.z*strafe;
-      const mLen=Math.hypot(mx,mz)||1,pSpd=4.2;
+      const mLen=Math.hypot(mx,mz)||1,pSpd=4.2*inputMag;
       pedPos.x+=mx/mLen*pSpd*sdt;pedPos.z+=mz/mLen*pSpd*sdt;
       walkDistance+=pSpd*sdt;
       if(walkDistance>=500)unlock('wanderer');
       const targetAngle=Math.atan2(mx,mz);
       const da=((targetAngle-pedAngle+Math.PI*3)%(Math.PI*2))-Math.PI;
-      pedAngle+=clamp(da,-8*sdt,8*sdt);
+      pedAngle+=clamp(da,-11*sdt,11*sdt);
       walking=true;
     }
     pedPos.x=clamp(pedPos.x,-CITY+2,CITY-2);pedPos.z=clamp(pedPos.z,-CITY+2,CITY-2);
@@ -3102,7 +3090,7 @@ function update(dt){
    if(DOM.vehicleBtn._last!==label){DOM.vehicleBtn._last=label;DOM.vehicleBtn.textContent=label;
      DOM.vehicleBtn.classList.toggle('onfoot',onFoot);
      document.body.classList.toggle('onfoot',onFoot);
-     if(!onFoot){setJoyKeys(0,0,1,false);lookX=0;lookY=0;}}}
+     if(!onFoot){walkX=0;walkY=0;lookX=0;lookY=0;}}}
   updateNavi();updateHUD(dt,dayT);drawMinimap();
 }
 init().catch(e=>console.error('Init-Fehler:',e));
