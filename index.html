@@ -2882,7 +2882,7 @@ function update(dt){
       if(camFwd.lengthSq()<1e-6)camFwd.set(0,0,1);else camFwd.normalize();
       camRight.crossVectors(camFwd,camera.up).normalize();
       const mx=camFwd.x*thr+camRight.x*strafe,mz=camFwd.z*thr+camRight.z*strafe;
-      const mLen=Math.hypot(mx,mz)||1,pSpd=6*inputMag;
+      const mLen=Math.hypot(mx,mz)||1,pSpd=8*inputMag;
       pedPos.x+=mx/mLen*pSpd*sdt;pedPos.z+=mz/mLen*pSpd*sdt;
       walkDistance+=pSpd*sdt;
       if(walkDistance>=500)unlock('wanderer');
@@ -3058,7 +3058,7 @@ function update(dt){
     s.line.geometry.attributes.position.needsUpdate=true;}
   if(cinematic)camAngle+=dt*.3;
   else if(!mouseLocked&&!onFoot)camAngle*=Math.max(0,1-3*dt);
-  if(onFoot&&(lookX||lookY))camAngle-=lookX*2.8*dt;
+  if(onFoot&&(lookX||lookY))camAngle-=lookX*Math.abs(lookX)*1.7*dt;
   shake=Math.max(0,shake-dt*1.6);
   const focusPos=onFoot?pedPos:car.position;
   const orbitAngle=onFoot?camAngle:(carAngle+camAngle);
