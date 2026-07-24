@@ -50,6 +50,7 @@ font-weight:700;transform:skewX(-6deg);box-shadow:4px 0 0 rgba(0,0,0,.45);transi
 #chips{position:absolute;top:96px;left:22px;display:flex;flex-direction:column;gap:7px}
 .chip{background:var(--panel);border-left:4px solid var(--gold);padding:6px 14px;color:#dfe8ff;font:600 12.5px 'Chakra Petch';
 letter-spacing:1px;clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+body.mobile .chip{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip b{color:var(--gold);font-size:15px}
 #pkgChip{border-left-color:var(--mint)}#pkgChip b{color:var(--mint)}
 #raceChip{border-left-color:var(--hot);display:none}#raceChip b{color:var(--hot)}
@@ -222,7 +223,9 @@ box-shadow:0 0 12px var(--cyan);transition:width .25s ease-out}
 body.mobile #minimapWrap{transform:scale(.7);transform-origin:left bottom;margin-left:env(safe-area-inset-left);bottom:calc(260px + env(safe-area-inset-bottom))}
 /* Laufmodus: der linke Analog-Stick liegt genau im alten Minimap-Bereich (unten links) -> Minimap höher setzen und etwas verkleinern, damit sie frei bleibt */
 body.mobile.onfoot #minimapWrap{bottom:calc(222px + env(safe-area-inset-bottom));transform:scale(.58);transform-origin:left bottom}
-body.mobile #speedo{transform:scale(.76);transform-origin:right bottom;margin-right:env(safe-area-inset-right);bottom:calc(284px + env(safe-area-inset-bottom))}
+/* Tacho und Minimap kämpften beide um die untere Bildschirmhälfte und überlappten sich -> Tacho komplett weg von der Minimap, stattdessen oben rechts unter Geld/Uhr */
+body.mobile:not(.onfoot) #speedo{transform:scale(.7);transform-origin:right top;margin-right:env(safe-area-inset-right);
+  top:calc(190px + env(safe-area-inset-top));bottom:auto;right:calc(12px + env(safe-area-inset-right))}
 body.mobile #hint,body.mobile #controlsPanel{display:none}
 body.mobile #topRight{padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right)}
 body.mobile #navi{margin-top:env(safe-area-inset-top);margin-left:env(safe-area-inset-left)}
@@ -276,17 +279,17 @@ body.mobile.is-landscape #mission{top:56px}
 /* Querformat hat kaum Höhe für die großen Fahr-Buttons -> ganzen Steuerkreuz-Cluster verkleinern und Minimap/Tacho eng darüber platzieren */
 body.mobile.is-landscape:not(.onfoot) #touchControls{transform:scale(.7);transform-origin:bottom center}
 body.mobile.is-landscape:not(.onfoot) #minimapWrap{bottom:calc(16px + env(safe-area-inset-bottom));transform:scale(.5);transform-origin:left bottom}
-body.mobile.is-landscape:not(.onfoot) #speedo{bottom:calc(205px + env(safe-area-inset-bottom));transform:scale(.54);transform-origin:right bottom}
+body.mobile.is-landscape:not(.onfoot) #speedo{top:calc(165px + env(safe-area-inset-top));transform:scale(.42);transform-origin:right top}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:flex;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
 #tcMenuBtn.on{filter:brightness(1.6);box-shadow:0 0 18px currentColor}
-#tcMenuPanel{position:fixed;top:calc(66px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));display:none;grid-template-columns:repeat(3,60px);gap:7px;
+#tcMenuPanel{position:fixed;top:calc(66px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));display:none;grid-template-columns:repeat(3,74px);gap:8px;
 pointer-events:auto;background:rgba(10,15,28,.92);border:2px solid var(--cyan);border-radius:10px;padding:9px}
 #tcMenuPanel.open{display:grid}
-#tcMenuPanel .mBtn{width:60px;height:46px;display:flex;align-items:center;justify-content:center;text-align:center;
+#tcMenuPanel .mBtn{width:74px;height:58px;display:flex;align-items:center;justify-content:center;text-align:center;
 background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.28);border-radius:8px;color:#fff;
-font:700 9.5px 'Chakra Petch';letter-spacing:.5px;user-select:none;-webkit-user-select:none;touch-action:none}
+font:700 11px 'Chakra Petch';letter-spacing:.5px;user-select:none;-webkit-user-select:none;touch-action:none}
 #tcMenuPanel .mBtn.on{background:rgba(53,240,255,.3);border-color:var(--cyan)}
 #vehicleBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:30;
 cursor:pointer;padding:8px 22px;background:rgba(10,15,28,.72);border:2px solid var(--cyan);border-radius:8px;
