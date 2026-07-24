@@ -2264,6 +2264,7 @@ function enterVehicle(){
     if(firstTime)showMission('Auto geklaut! Folge dem Marker auf der Minimap zur ersten Mission');
     if(firstTime)placeMissionBeacon(true);
     best.visible=false;best.g.visible=false;best.respawn=30;}
+  else popup('KEIN AUTO IN DER NÄHE','red');
 }
 function repaint(){
   const col=new THREE.Color().setHSL(Math.random(),.7+Math.random()*.3,.45+Math.random()*.15);
@@ -3065,7 +3066,8 @@ function update(dt){
   const ch=2.1+cDist*Math.sin(cPitch);
   T2.set(focusPos.x-Math.sin(orbitAngle)*cDist*Math.cos(cPitch),focusPos.y+ch,
          focusPos.z-Math.cos(orbitAngle)*cDist*Math.cos(cPitch));
-  camera.position.lerp(T2,1-Math.pow(.0001,dt));
+  if(onFoot)camera.position.lerp(T2,Math.min(1,dt*14));
+  else camera.position.lerp(T2,1-Math.pow(.0001,dt));
   if(shake>0)camera.position.add(T3.set(rnd(-1,1),rnd(-1,1),rnd(-1,1)).multiplyScalar(shake*.35));
   T3.copy(focusPos);T3.y+=1.4;T3.addScaledVector(vel,.14);camera.lookAt(T3);
   const tFov=64+spd*.16+(nitroOn?9:0)+(slowmo?6:0);fov+=(tFov-fov)*4*dt;camera.fov=fov;camera.updateProjectionMatrix();
