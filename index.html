@@ -269,8 +269,9 @@ body.mobile #soundChip,body.mobile #npChip,body.mobile #topspd{display:none}
 /* Menü-Button lag unter der Geld/Uhr-Anzeige oben rechts -> auf Mobile darunter setzen */
 body.mobile #tcMenuBtn{top:calc(88px + env(safe-area-inset-top))}
 body.mobile #tcMenuPanel{top:calc(138px + env(safe-area-inset-top))}
-/* Missions-Banner erschien automatisch über der Navi-Box -> auf Mobile tiefer setzen */
-body.mobile #mission{top:calc(184px + env(safe-area-inset-top))}
+/* Missions-Banner erschien automatisch über der Navi-Box -> auf Mobile tiefer und schmaler */
+body.mobile #mission{top:calc(184px + env(safe-area-inset-top));font-size:15px;padding:7px 16px}
+body.mobile:not(.onfoot) #speedo{transform:scale(.6)}
 /* Orientierung wird zusätzlich per JS erkannt (siehe syncOrientation()) statt nur über @media (orientation:) --
    manche mobilen Browser aktualisieren die reine CSS-Media-Query nach einem Rotationswechsel nicht zuverlässig,
    wodurch Elemente nach hochkant->quer->hochkant fälschlich in der Quer-Skalierung hängen bleiben. */
