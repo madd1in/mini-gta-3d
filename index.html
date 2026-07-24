@@ -281,7 +281,7 @@ font:700 9.5px 'Chakra Petch';letter-spacing:.5px;user-select:none;-webkit-user-
 #vehicleBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:30;
 cursor:pointer;padding:8px 22px;background:rgba(10,15,28,.72);border:2px solid var(--cyan);border-radius:8px;
 color:var(--cyan);font:700 13px 'Chakra Petch';letter-spacing:1px;text-shadow:1px 1px 0 #000;
-box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .12s}
+box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .12s;pointer-events:auto}
 #vehicleBtn:hover{transform:translateX(-50%) scale(1.06);background:rgba(53,240,255,.18)}
 #vehicleBtn:active{transform:translateX(-50%) scale(.96)}
 #vehicleBtn.onfoot{border-color:var(--gold);color:var(--gold);box-shadow:0 0 14px rgba(255,210,63,.35)}
@@ -2536,7 +2536,8 @@ function bindJoystick(base,knob){
     let dx=e.clientX-cx,dy=e.clientY-cy;const d=Math.hypot(dx,dy);
     if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR;}
     knob.style.transform='translate(calc(-50% + '+dx+'px), calc(-50% + '+dy+'px))';
-    const mag=d/maxR;if(mag<.12){walkX=0;walkY=0;}else{walkX=dx/maxR;walkY=dy/maxR;}};
+    const effR=maxR*.55,mag=Math.min(1,d/effR);
+    if(mag<.1){walkX=0;walkY=0;}else{const a=Math.atan2(dy,dx);walkX=Math.cos(a)*mag;walkY=Math.sin(a)*mag;}};
   const start=e=>{e.preventDefault();const r=base.getBoundingClientRect();
     cx=r.left+r.width/2;cy=r.top+r.height/2;maxR=r.width/2;
     active=true;knob.classList.add('on');
@@ -2880,7 +2881,7 @@ function update(dt){
       if(camFwd.lengthSq()<1e-6)camFwd.set(0,0,1);else camFwd.normalize();
       camRight.crossVectors(camFwd,camera.up).normalize();
       const mx=camFwd.x*thr+camRight.x*strafe,mz=camFwd.z*thr+camRight.z*strafe;
-      const mLen=Math.hypot(mx,mz)||1,pSpd=4.2*inputMag;
+      const mLen=Math.hypot(mx,mz)||1,pSpd=6*inputMag;
       pedPos.x+=mx/mLen*pSpd*sdt;pedPos.z+=mz/mLen*pSpd*sdt;
       walkDistance+=pSpd*sdt;
       if(walkDistance>=500)unlock('wanderer');
