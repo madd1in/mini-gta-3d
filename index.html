@@ -285,27 +285,32 @@ body.mobile .bar{width:104px;height:9px}
 body.mobile .barLabel{font-size:8px;letter-spacing:1.2px}
 body.mobile #speedNum{font-size:34px}
 body.mobile #speedUnit{font-size:9px;letter-spacing:1.5px}
-body.mobile #tcMenuBtn{top:auto;bottom:calc(232px + env(safe-area-inset-bottom));right:calc(16px + env(safe-area-inset-right))}
-body.mobile #tcMenuPanel{top:auto;bottom:calc(286px + env(safe-area-inset-bottom));right:calc(16px + env(safe-area-inset-right))}
+body.mobile #tcMenuBtn{top:calc(200px + env(safe-area-inset-top));bottom:auto;right:calc(16px + env(safe-area-inset-right))}
+body.mobile #tcMenuPanel{top:calc(252px + env(safe-area-inset-top));bottom:auto;right:calc(16px + env(safe-area-inset-right))}
 body.mobile #mission{font-size:14px;padding:7px 14px;max-width:76vw;overflow:hidden;text-overflow:ellipsis}
 body.mobile #minimapWrap{margin-left:env(safe-area-inset-left);transform-origin:left bottom}
 body.mobile.is-portrait #navi{width:min(60vw,240px)}
 body.mobile.is-portrait #chips{transform:scale(.72);transform-origin:top left}
 body.mobile.is-portrait #topRight{transform:scale(.82);transform-origin:top right}
-body.mobile.is-portrait #mission{top:calc(232px + env(safe-area-inset-top))}
-body.mobile.is-portrait #minimapWrap{transform:scale(.62);bottom:calc(214px + env(safe-area-inset-bottom))}
+body.mobile.is-portrait #mission{top:calc(300px + env(safe-area-inset-top))}
+body.mobile.is-portrait #minimapWrap{transform:scale(.62);bottom:calc(272px + env(safe-area-inset-bottom))}
 body.mobile.is-landscape #navi{width:min(36vw,200px)}
 body.mobile.is-landscape #chips{transform:scale(.58);transform-origin:top left}
 body.mobile.is-landscape #topRight{transform:scale(.7);transform-origin:top right}
 body.mobile.is-landscape #mission{top:calc(150px + env(safe-area-inset-top))}
 body.mobile.is-landscape #speedo{top:calc(74px + env(safe-area-inset-top));transform:scale(.8);transform-origin:right top}
 body.mobile.is-landscape #minimapWrap{transform:scale(.46);bottom:calc(4px + env(safe-area-inset-bottom))}
-body.mobile.is-landscape #tcMenuBtn{bottom:auto;top:calc(16px + env(safe-area-inset-top));right:calc(74px + env(safe-area-inset-right))}
-body.mobile.is-landscape #tcMenuPanel{bottom:auto;top:calc(66px + env(safe-area-inset-top))}
+body.mobile.is-landscape #tcMenuBtn{bottom:auto;top:calc(16px + env(safe-area-inset-top));right:calc(120px + env(safe-area-inset-right))}
+body.mobile.is-landscape #tcMenuPanel{bottom:auto;top:calc(66px + env(safe-area-inset-top));right:calc(120px + env(safe-area-inset-right))}
 body.mobile.is-landscape:not(.onfoot) #touchControls{transform:scale(.72);transform-origin:bottom center}
 /* Laufmodus: unten links sitzt der Lauf-Joystick -> Minimap nach oben rechts, wo der Tacho ausgeblendet ist */
 body.mobile.onfoot #minimapWrap{left:auto;bottom:auto;right:calc(14px + env(safe-area-inset-right));
   top:calc(92px + env(safe-area-inset-top));transform-origin:right top;margin-left:0}
+body.mobile.onfoot #tcMenuBtn{top:calc(232px + env(safe-area-inset-top))}
+body.mobile.onfoot #tcMenuPanel{top:calc(284px + env(safe-area-inset-top))}
+body.mobile.is-landscape.onfoot #tcMenuBtn{top:calc(194px + env(safe-area-inset-top))}
+body.mobile.is-landscape.onfoot #tcMenuPanel{top:auto;bottom:calc(30px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape.onfoot #tcAction{left:calc(172px + env(safe-area-inset-left));bottom:calc(30px + env(safe-area-inset-bottom))}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:none;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
