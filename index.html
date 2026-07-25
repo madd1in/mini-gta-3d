@@ -625,6 +625,7 @@ function djSay(text){if(djCd>0)return;djCd=8;
 /* ============ AUDIO ============ */
 let actx,master,musicG,musicLP,sfxG,engMaster,engOsc1,engOsc2,engFilter,engGain,driftGain,sirenOsc,sirenGain,delayNode,noiseBuf,muted=false,nextNote=0,seqStep=0,stationIdx=0;
 let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0,mp3StationIdx=-1;
+let musicHot=false,musicHotPending=false,musicMoodT=0;
 let lookX=0,lookY=0,walkX=0,walkY=0;
 let blobTex=null,blobMat=null,carBlob=null,pedBlob=null;
 /* Textur-Atlanten aus dem eigenen Asphaltkoenig-Projekt (assets/): city-ground-atlas 2x2
@@ -634,22 +635,26 @@ let ATLAS={ground:null,detail:null,props:null,decals:null,facade:null,cloud:null
   facadeBrick:null,facadeGlass:null},cityProps=[];
 let heatActive=false,heatTimer=0,heatPeak=0;
 const STATIONS=[
+/* hot-Flag = treibender Titel, läuft nur bei Verfolgung/Heat/Rennen. Die Einstufung stammt NICHT
+   aus den Titeln, sondern aus einer Messung der Transientendichte (Onsets/Sekunde über die ersten
+   60s) direkt im Browser — Schwelle 3.0/s. Gemessene Werte stehen als Kommentar dahinter, damit
+   die Zuordnung nachvollziehbar bleibt. Jeder Sender hat bewusst ruhige UND treibende Titel. */
  {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
-   {title:'NEON HEIST RUN',file:'radio/neon-heist-run.mp3'},
-   {title:'VICE COAST RUN',file:'radio/vice-coast-run.mp3'},
-   {title:'BOULEVARD HEAT LOOP',file:'radio/boulevard-heat-loop.mp3'},
-   {title:'FIVE STAR MAYHEM',file:'radio/five-star-mayhem.mp3'},
-   {title:'JET FUEL GLORY',file:'radio/jet-fuel-glory.mp3'}]},
+   {title:'NEON HEIST RUN',file:'radio/neon-heist-run.mp3',hot:false},      /* 2.92 */
+   {title:'VICE COAST RUN',file:'radio/vice-coast-run.mp3',hot:true},       /* 3.40 */
+   {title:'BOULEVARD HEAT LOOP',file:'radio/boulevard-heat-loop.mp3',hot:true}, /* 3.78 */
+   {title:'FIVE STAR MAYHEM',file:'radio/five-star-mayhem.mp3',hot:false},  /* 2.42 */
+   {title:'JET FUEL GLORY',file:'radio/jet-fuel-glory.mp3',hot:false}]},    /* 2.53 */
  {name:'APEX FM',tag:'RENNFUNK',bpm:0,mp3:true,tracks:[
-   {title:'MUDLINE OVERDRIVE',file:'radio/mudline-overdrive.mp3'},
-   {title:'KARTFIRE PARADE',file:'radio/kartfire-parade.mp3'},
-   {title:'CLIFFLINE RUN',file:'radio/cliffline-run.mp3'}]},
+   {title:'MUDLINE OVERDRIVE',file:'radio/mudline-overdrive.mp3',hot:true}, /* 3.22 */
+   {title:'KARTFIRE PARADE',file:'radio/kartfire-parade.mp3',hot:true},     /* 3.85 */
+   {title:'CLIFFLINE RUN',file:'radio/cliffline-run.mp3',hot:false}]},      /* 1.58 */
  {name:'NACHTFALTER FM',tag:'SPÄTPROGRAMM',bpm:0,mp3:true,tracks:[
-   {title:'NACHTFALTER FM',file:'radio/nachtfalter-fm.mp3'},
-   {title:'BETONHAIN NIGHT',file:'radio/betonhain-night.mp3'},
-   {title:'RADIO CHROM',file:'radio/radio-chrom.mp3'},
-   {title:'BASSKELLER',file:'radio/basskeller.mp3'},
-   {title:'FUNK 88.8',file:'radio/funk-88-8.mp3'}]},
+   {title:'NACHTFALTER FM',file:'radio/nachtfalter-fm.mp3',hot:true},       /* 4.12 */
+   {title:'BETONHAIN NIGHT',file:'radio/betonhain-night.mp3',hot:false},    /* 2.78 */
+   {title:'RADIO CHROM',file:'radio/radio-chrom.mp3',hot:false},            /* 2.64 */
+   {title:'BASSKELLER',file:'radio/basskeller.mp3',hot:true},               /* 4.45 */
+   {title:'FUNK 88.8',file:'radio/funk-88-8.mp3',hot:true}]},               /* 4.32 */
  {name:'TURBO FM',tag:'SYNTHWAVE',bpm:112,swing:0,chords:[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],roots:[33,29,36,31],bassMode:0,arp:1,lead:1,kick:[0,4,8,12],snare:[4,12],hats:'all',leadPat:[76,null,74,null,72,null,74,76,null,79,null,76,null,74,72,null,null]},
  {name:'NIGHT DRIVE',tag:'LO-FI CHILL',bpm:74,swing:.16,chords:[[59,62,66,69],[55,59,62,66],[52,55,59,62],[57,60,64,67]],roots:[35,31,28,33],bassMode:1,arp:0,lead:0,kick:[0,7,10],snare:[8],hats:'off',leadPat:null},
  {name:'NITRO FM',tag:'BREAKBEAT',bpm:152,swing:0,chords:[[57,60,64],[55,59,62],[57,60,64],[50,53,57]],roots:[33,31,33,26],bassMode:2,arp:2,lead:0,kick:[0,10],snare:[4,12],hats:'all',leadPat:null},
@@ -703,13 +708,42 @@ function initAudio(){
   radioAudio=new Audio();radioAudio.preload='auto';
   mp3Gain=actx.createGain();mp3Gain.gain.value=.7;mp3Gain.connect(master);
   mp3Source=actx.createMediaElementSource(radioAudio);mp3Source.connect(mp3Gain);
+  /* Nächster Titel richtet sich nach der aktuellen Lage, nicht stur nach der Reihenfolge. */
   radioAudio.addEventListener('ended',()=>{const st=STATIONS[stationIdx];
-    if(st&&st.mp3){mp3TrackIdx=(mp3TrackIdx+1)%st.tracks.length;playMp3Track(mp3TrackIdx);}});
+    if(st&&st.mp3)playMp3Track(pickTrackIdx(st,musicHot));});
   shuffleRadio();
   if(STATIONS[stationIdx].mp3)playMp3Track(mp3TrackIdx);
 }
 /* Beim Spielstart wird die Titelreihenfolge jedes MP3-Senders neu gemischt und ein zufälliger
    Einstiegstitel gewählt — sonst begrüßt einen jede Sitzung mit exakt demselben Song. */
+/* ===== SITUATIONSABHÄNGIGE MUSIKAUSWAHL =====
+   Ruhige Titel beim normalen Fahren, treibende nur wenn wirklich etwas los ist (Verfolgung,
+   Heat-Kapitel, Rennen). Jeder Titel trägt dazu ein `hot`-Flag. Damit die Musik nicht bei jedem
+   kurzen Fahndungsstern hin- und herspringt, muss der Zustand erst ein paar Sekunden anhalten. */
+function musicWantsHot(){return raceMode||heatActive||wanted>=2.5;}
+function pickTrackIdx(st,hot){
+  const pool=[];
+  for(let i=0;i<st.tracks.length;i++)if(!!st.tracks[i].hot===hot)pool.push(i);
+  if(!pool.length)return Math.floor(Math.random()*st.tracks.length);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+/* Kurzes Aus- und Einblenden beim Wechsel, damit der Umschwung nicht abrupt reinschneidet. */
+function fadeMp3(to,dur){
+  if(!mp3Gain||!actx)return;
+  mp3Gain.gain.cancelScheduledValues(actx.currentTime);
+  mp3Gain.gain.setTargetAtTime(to,actx.currentTime,Math.max(.05,dur/3));
+}
+function updateMusicMood(dt){
+  const st=STATIONS[stationIdx];
+  if(!st||!st.mp3||!radioAudio||muted)return;
+  const want=musicWantsHot();
+  if(want!==musicHotPending){musicHotPending=want;musicMoodT=0;return;}
+  musicMoodT+=dt;
+  if(musicMoodT<3||want===musicHot)return;   /* 3s Haltezeit gegen Zappeln */
+  musicHot=want;musicMoodT=0;
+  fadeMp3(0,.5);
+  setTimeout(()=>{playMp3Track(pickTrackIdx(STATIONS[stationIdx],musicHot));fadeMp3(.7,.6);},520);
+}
 function shuffleRadio(){
   for(const st of STATIONS){
     if(!st.mp3||!st.tracks)continue;
@@ -718,8 +752,10 @@ function shuffleRadio(){
       const t=st.tracks[i];st.tracks[i]=st.tracks[j];st.tracks[j]=t;
     }
   }
+  /* Start immer ruhig — beim Losfahren ist noch nichts los. */
   const cur=STATIONS[stationIdx];
-  mp3TrackIdx=cur&&cur.mp3?Math.floor(Math.random()*cur.tracks.length):0;
+  musicHot=false;musicHotPending=false;musicMoodT=0;
+  mp3TrackIdx=cur&&cur.mp3?pickTrackIdx(cur,false):0;
 }
 function playMp3Track(idx){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
   mp3TrackIdx=idx%st.tracks.length;mp3StationIdx=stationIdx;
@@ -728,7 +764,7 @@ function playMp3Track(idx){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radio
 /* Beim Wechsel ZWISCHEN zwei MP3-Sendern muss ein neuer Track geladen werden — sonst liefe der
    Titel des vorherigen Senders weiter. Nur bei Rückkehr zum selben Sender wird fortgesetzt. */
 function resumeMp3(){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
-  if(mp3StationIdx!==stationIdx||!radioAudio.src){playMp3Track(0);return;}
+  if(mp3StationIdx!==stationIdx||!radioAudio.src){playMp3Track(pickTrackIdx(st,musicHot));return;}
   radioAudio.play().catch(()=>{});
   if(DOM.npName)DOM.npName.textContent=st.tracks[mp3TrackIdx].title;}
 function stopMp3(){if(radioAudio)radioAudio.pause();}
@@ -3727,6 +3763,7 @@ function update(dt){
     pedBlob.visible=onFoot&&ped.visible;
     if(pedBlob.visible)pedBlob.position.set(pedPos.x,.03,pedPos.z);
   }
+  updateMusicMood(dt);
   updateNavi();updateHUD(dt,dayT);drawMinimap();
 }
 init().catch(e=>console.error('Init-Fehler:',e));
