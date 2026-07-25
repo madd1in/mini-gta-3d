@@ -386,7 +386,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
     <h3>STEUERUNG</h3>
     <kbd>W</kbd><kbd>S</kbd> Gas &nbsp; <kbd>A</kbd><kbd>D</kbd> Lenken &nbsp; <kbd>SPACE</kbd> Drift<br>
     <b style="color:var(--hot)">LUFT: W/S Salto &nbsp; A/D Rolle</b><br>
-    <kbd>R</kbd> Rennen &nbsp; <kbd>Z</kbd> Heat &nbsp; <kbd>0</kbd> Reset &nbsp; <kbd>Y</kbd> Handy &nbsp; <kbd>X</kbd> Bestechen<br>
+    <b style="color:var(--mint)"><kbd>U</kbd> STORY-KAMPAGNE</b> &nbsp; <kbd>R</kbd> Rennen &nbsp; <kbd>Z</kbd> Heat &nbsp; <kbd>0</kbd> Reset &nbsp; <kbd>Y</kbd> Handy &nbsp; <kbd>X</kbd> Bestechen<br>
     <kbd>L</kbd> Licht &nbsp; <kbd>SHIFT</kbd> Nitro &nbsp; <kbd>B</kbd> Bullet &nbsp; <kbd>E</kbd> Tanken<br>
     <kbd>G</kbd> Tanke &nbsp; <kbd>F</kbd> Kino &nbsp; <kbd>K</kbd> +6h &nbsp; <kbd>P</kbd> Wetter &nbsp; <kbd>TAB</kbd> Radio<br>
     <b style="color:#c77dff">CHEATS: lunar / rocket / wrench / felony / richie / frost</b>
@@ -418,7 +418,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
     <div id="naviDist">&#8212;</div><div id="naviText">Navigation bereit &#8212; warte auf Auftrag</div></div></div>
   <div id="vehicleBtn">AUSSTEIGEN</div>
   <div id="chips">
-    <div class="chip" id="jobChip">KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT</div>
+    <div class="chip" id="jobChip">&#128214; STORY <b>[U]</b> &nbsp;&#183;&nbsp; <b>[T]</b> AUFTRAG &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT</div>
     <div class="chip" id="raceChip">&#127937; <b id="racePos">POS 1/4</b> &nbsp;&#183;&nbsp; <span id="raceCp">CP 0/0</span></div>
     <div class="chip" id="pkgChip">&#128230; PAKETE &nbsp;<b>0/10</b></div>
     <div class="chip" id="cheatChip">&#128273; <span id="cheatTxt"></span></div>
@@ -476,6 +476,7 @@ box-shadow:0 0 14px rgba(53,240,255,.35);user-select:none;transition:transform .
   <div class="mBtn" id="mMute">STUMM</div>
   <div class="mBtn" id="mStation">TANKE</div>
   <div class="mBtn" id="mHeat">HEAT</div>
+  <div class="mBtn" id="mStory">STORY</div>
 </div>
 
 <script>
@@ -595,11 +596,11 @@ function randSidewalk(){const i=(Math.floor(Math.random()*19)-9)*BLOCK,j=(Math.f
   return{x:i+8*(Math.random()<.5?1:-1),z:j+8*(Math.random()<.5?1:-1)};}
 
 /* ============ SAVE / LOAD ============ */
-function saveGame(){try{localStorage.setItem('minigta12',JSON.stringify({money,ownedCars,currentCar,upgrades,unlockedAch,topSpeed,packagesGot}));}catch(e){}}
+function saveGame(){try{localStorage.setItem('minigta12',JSON.stringify({money,ownedCars,currentCar,upgrades,unlockedAch,topSpeed,packagesGot,storyStep}));}catch(e){}}
 function loadGame(){try{const d=JSON.parse(localStorage.getItem('minigta12'));
   if(d){money=d.money||500;ownedCars=d.ownedCars||{0:true};currentCar=d.currentCar||0;
     upgrades=d.upgrades||{engine:0,tires:0,nitro:0};unlockedAch=d.unlockedAch||{};
-    topSpeed=d.topSpeed||0;packagesGot=d.packagesGot||0;}}catch(e){}
+    topSpeed=d.topSpeed||0;packagesGot=d.packagesGot||0;storyStep=d.storyStep||0;}}catch(e){}
   applyCar(currentCar);}
 function applyCar(id){const c=CARS[id];currentCar=id;
   SPEC={name:c.name,max:c.max+upgrades.engine*5,acc:c.acc+upgrades.engine*4,grip:c.grip+upgrades.tires,eng:c.eng};
@@ -935,6 +936,16 @@ function startFare(fare){
 }
 function arriveJob(){
   route.active=false;buildRibbon();
+  /* Story-Zustellung hat Vorrang vor dem normalen Auftrags-Payout: bei "heißer Ware" zählt nur
+     die Ankunft MIT der geforderten Fahndungsstufe, sonst gilt das Kapitel als gescheitert. */
+  if(storyActive&&(storyType==='deliver'||storyType==='deliver_hot')){
+    if(storyType==='deliver_hot'&&Math.floor(wanted)<storyNeed){
+      storyFail('Fahndung zu früh abgeschüttelt');
+    }else{
+      storyComplete();
+    }
+    jobPayout=0;placeMissionBeacon();return;
+  }
   if(jobPayout>0){
     let payout=jobPayout,bonus=0;
     if(fareActive){bonus=Math.round(jobPayout*.7*clamp(fareTimer/fareBudget,0,1));payout+=bonus;}
@@ -964,6 +975,71 @@ function getPlayerProgress(){
   const a=p[si],b=p[si+1],sl=route.lens[si]||1;
   const t=clamp(((car.position.x-a.x)*(b.x-a.x)+(car.position.z-a.z)*(b.z-a.z))/(sl*sl),0,1);
   return route.cum[si]+t*sl;
+}
+/* ============ STORY-KAMPAGNE ============
+   Bisher gab es nur endlos gleiche Zufallsaufträge — kein roter Faden, kein Ziel. Die Kampagne
+   verkettet die vorhandenen Systeme (Zustellung, Fahndung, Heat, Rennen) zu Kapiteln mit
+   steigendem Druck und festen Belohnungen. Fortschritt wird mitgespeichert. */
+const STORY=[
+ {t:'DIE ERSTE FUHRE',type:'deliver',pay:2000,
+  d:'Karla: Du fährst also jetzt für mich. Erste Kiste, keine Fragen — bring sie zum Marker.'},
+ {t:'HEISSE WARE',type:'deliver_hot',need:2,pay:4500,
+  d:'Karla: Die Ladung ist gemeldet. Zwei Streifen kleben schon an dir — trotzdem abliefern.'},
+ {t:'DIE ABLENKUNG',type:'survive',secs:45,pay:8000,
+  d:'Karla: Mein Mann braucht Luft. Zieh die Streifen auf dich und halte sie 45 Sekunden.'},
+ {t:'ASPHALTKÖNIG',type:'race',pay:10000,
+  d:'Karla: Rivas Leute lachen über dich. Fahr das Rennen und stopf ihnen das Maul.'},
+ {t:'DER GROSSE BRUCH',type:'deliver_hot',need:4,pay:25000,
+  d:'Karla: Letzte Fuhre. Halbe Stadt sucht dich. Kommst du durch, gehört dir Mini City.'}
+];
+let storyStep=0,storyActive=false,storyType='',storyNeed=0;
+function storyStart(){
+  if(dead||onFoot){popup('STORY NUR IM AUTO','red');return;}
+  if(storyActive){popup('KAPITEL LÄUFT BEREITS','red');return;}
+  if(storyStep>=STORY.length){popup('STORY ABGESCHLOSSEN','mint');
+    showMission('Alle Kapitel geschafft — Mini City gehört dir.');return;}
+  const ch=STORY[storyStep];
+  storyActive=true;storyType=ch.type;storyNeed=ch.need||0;
+  showBigMsg('KAPITEL '+(storyStep+1));
+  showMission(ch.t+' — '+ch.d);
+  popup('KAPITEL '+(storyStep+1)+': '+ch.t,'cyan');
+  djSay(ch.d);
+  if(ch.type==='survive'){
+    heatActive=true;heatTimer=ch.secs;heatPeak=Math.max(3,Math.floor(wanted));
+    wanted=Math.max(wanted,3);sfxStatic();
+  }else if(ch.type==='race'){
+    if(!raceMode)startRace();
+  }else{
+    const p=randRoadPoint();setDestination(p.x,p.z);
+    if(!route.active){storyActive=false;popup('KEIN ZIEL GEFUNDEN','red');return;}
+    route.arriveR=9;jobPayout=ch.pay;
+    if(ch.type==='deliver_hot')wanted=Math.max(wanted,ch.need);
+  }
+  DOM.jobChip.innerHTML='📖 KAPITEL <b>'+(storyStep+1)+'/'+STORY.length+'</b> — '+ch.t;
+}
+function storyComplete(){
+  if(!storyActive)return;
+  const ch=STORY[storyStep];
+  money+=ch.pay;bump(DOM.money);sfxArrive();
+  popup('KAPITEL GESCHAFFT  +$'+ch.pay.toLocaleString('en-US'),'mint');
+  showBigMsg('GESCHAFFT');
+  for(let k=0;k<5;k++)setTimeout(()=>fireworksBurst(car.position.x+rnd(-40,40),rnd(50,85),car.position.z+rnd(-40,40)),k*260);
+  storyStep++;storyActive=false;storyType='';saveGame();
+  if(storyStep>=STORY.length){
+    setTimeout(()=>{showBigMsg('MINI CITY IST DEIN');
+      showMission('Story abgeschlossen — du bist der Asphaltkönig.');
+      DOM.jobChip.innerHTML='📖 <b>STORY KOMPLETT</b>';},1600);
+  }else{
+    setTimeout(()=>{showMission('Nächstes Kapitel bereit — [U] starten');
+      DOM.jobChip.innerHTML='📖 KAPITEL <b>'+(storyStep+1)+'/'+STORY.length+'</b> bereit — <b>[U]</b>';},1800);
+  }
+}
+function storyFail(reason){
+  if(!storyActive)return;
+  storyActive=false;storyType='';
+  popup('KAPITEL GESCHEITERT — '+reason,'red');
+  showMission('Kapitel gescheitert — [U] für neuen Versuch');
+  DOM.jobChip.innerHTML='📖 KAPITEL <b>'+(storyStep+1)+'/'+STORY.length+'</b> — <b>[U]</b> erneut';
 }
 function startHeat(){
   if(dead||onFoot){popup('HEAT NUR IM AUTO','red');return;}
@@ -1005,6 +1081,11 @@ function finishRace(){
   showBigMsg(racePos===1?'SIEG!':'PLATZ '+racePos);
   popup('RENNEN BEENDET — PLATZ '+racePos+'  +$'+prize.toLocaleString('en-US'),racePos===1?'mint':'cyan');
   if(racePos===1){sfxArrive();djSay('Fantastisch! Du hast das Rennen gewonnen!');for(let k=0;k<6;k++)setTimeout(()=>fireworksBurst(car.position.x+rnd(-40,40),rnd(50,80),car.position.z+rnd(-40,40)),k*250);}
+  /* Story-Kapitel "Asphaltkönig" verlangt den Sieg, ein Platz dahinter zählt als Niederlage. */
+  if(storyActive&&storyType==='race'){
+    if(racePos===1)setTimeout(storyComplete,600);
+    else storyFail('Nur Platz '+racePos+' — Sieg nötig');
+  }
   setTimeout(()=>{endRace(true);},2000);
 }
 function updateRace(sdt){
@@ -2431,6 +2512,7 @@ function damage(a){if(dead)return;health-=a;
   requestAnimationFrame(()=>{el.style.transition='opacity .6s';el.style.opacity=0;});
   if(health<=0)wasted();}
 function wasted(){dead=true;vel.set(0,0,0);
+  if(storyActive&&storyType!=='survive')storyFail('Im Einsatz gestorben');
   DOM.wasted.style.display='flex';
   renderer.domElement.style.filter='grayscale(1) brightness(.65)';
   setTimeout(()=>{DOM.wasted.style.display='none';
@@ -2920,7 +3002,7 @@ function cacheDOM(){
     'money','wanted','clock','topspd','refuelMsg','pkgChip','driftEl','jackMsg','slowEl','minimap','title',
     'loadScreen','loadLabel','tcLeft','tcRight','tcGas','tcBrake','tcNitro','tcHandbrake','tcAction','vehicleBtn',
     'tcJoyBase','tcJoyKnob','tcLookBase','tcLookKnob',
-    'tcMenuBtn','tcMenuPanel','mHorn','mRadio','mMap','mRace','mBullet','mLights','mBribe','mPaint','mGlow','mWeather','mMute','mStation','mHeat'];
+    'tcMenuBtn','tcMenuPanel','mHorn','mRadio','mMap','mRace','mBullet','mLights','mBribe','mPaint','mGlow','mWeather','mMute','mStation','mHeat','mStory'];
   for(const id of ids)DOM[id]=document.getElementById(id);
   DOM.loadBar=document.getElementById('loadBarInner');
 }
@@ -3147,7 +3229,8 @@ async function init(){
       if(e.code==='KeyJ')enterVehicle();
       if(e.code==='KeyV')exitVehicle();
       if(e.code==='KeyT'&&!dead&&!onFoot){newJob();popup('NEUER AUFTRAG','');}
-      if(e.code==='KeyZ')startHeat();}
+      if(e.code==='KeyZ')startHeat();
+      if(e.code==='KeyU')storyStart();}
     keys[e.code]=true;});
   document.addEventListener('keyup',e=>keys[e.code]=false);
   document.addEventListener('mousemove',e=>{if(mouseLocked&&!cinematic){camAngle-=e.movementX*.003;camPitch=clamp(camPitch+e.movementY*.003,.06,1.1);}});
@@ -3181,6 +3264,7 @@ async function init(){
   bindTap(DOM.mMute,mAction(()=>toggleMute()));
   bindTap(DOM.mStation,mAction(()=>{if(!dead)navToStation();}));
   bindTap(DOM.mHeat,mAction(()=>startHeat()));
+  bindTap(DOM.mStory,mAction(()=>storyStart()));
   DOM.title.addEventListener('click',()=>{
     DOM.title.style.display='none';gameStarted=true;
     onFoot=true;pedPos.set(0,0,0);pedAngle=0;
@@ -3503,17 +3587,21 @@ function update(dt){
   if(heatActive){
     heatTimer=Math.max(0,heatTimer-dt);
     heatPeak=Math.max(heatPeak,Math.floor(wanted));
-    if(dead){heatActive=false;popup('HEAT ABGEBROCHEN','red');}
+    if(dead){heatActive=false;popup('HEAT ABGEBROCHEN','red');
+      if(storyActive&&storyType==='survive')storyFail('Im Einsatz gestorben');}
     else if(Math.floor(wanted)<1){heatActive=false;
       popup('HEAT VERLOREN \u2014 Fahndung abgesch\u00FCttelt','red');
-      showMission('Heat-Herausforderung gescheitert \u2014 du musstest die Fahndung HALTEN');
-      DOM.jobChip.innerHTML='KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT';}
+      if(storyActive&&storyType==='survive')storyFail('Fahndung verloren');
+      else{showMission('Heat-Herausforderung gescheitert \u2014 du musstest die Fahndung HALTEN');
+        DOM.jobChip.innerHTML='KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT';}}
     else if(heatTimer<=0){heatActive=false;
-      const reward=4000+heatPeak*3000;money+=reward;bump(DOM.money);sfxArrive();
-      popup('HEAT \u00DCBERSTANDEN +$'+reward.toLocaleString('en-US'),'mint');
-      showBigMsg('SURVIVOR');
-      for(let k=0;k<4;k++)setTimeout(()=>fireworksBurst(car.position.x+rnd(-40,40),rnd(50,80),car.position.z+rnd(-40,40)),k*280);
-      DOM.jobChip.innerHTML='KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT';}
+      if(storyActive&&storyType==='survive'){storyComplete();}
+      else{
+        const reward=4000+heatPeak*3000;money+=reward;bump(DOM.money);sfxArrive();
+        popup('HEAT \u00DCBERSTANDEN +$'+reward.toLocaleString('en-US'),'mint');
+        showBigMsg('SURVIVOR');
+        for(let k=0;k<4;k++)setTimeout(()=>fireworksBurst(car.position.x+rnd(-40,40),rnd(50,80),car.position.z+rnd(-40,40)),k*280);
+        DOM.jobChip.innerHTML='KEIN AUFTRAG &nbsp;<b>[T]</b> &nbsp;&#183;&nbsp; <b>[Z]</b> HEAT';}}
     else if(hudCd<=0){
       DOM.jobChip.innerHTML='\uD83D\uDD25 HEAT <b>'+Math.ceil(heatTimer)+'s</b> &nbsp;&#183;&nbsp; Peak <b>'+heatPeak+'\u2605</b>';}
   }
