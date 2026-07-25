@@ -553,7 +553,7 @@ let DOM={};
 /* ---- Geräte-/Qualitätsstufe: MOBILE per Touch-Erkennung in init() gesetzt, QUALITY steuert
    Fenster-Instanzen/Verkehrsdichte/Bloom-Auflösung/Pixel-Ratio/Schatten je nach Gerät ---- */
 let MOBILE=false;
-let QUALITY={winCap:6000,shadows:true,traffic:15,npcs:18,bloomScale:.45,pixelCap:1.4,antialias:true,groundTexSize:2048};
+let QUALITY={winCap:6000,shadows:true,traffic:26,npcs:44,bloomScale:.45,pixelCap:1.4,antialias:true,groundTexSize:2048};
 /* ---- Laufzeit-Optimierung: räumliches Gebäude-Raster für die Minimap (siehe buildSpatialGrid()) ---- */
 let buildingGrid=new Map();
 const UG_COLORS=[{n:'AUS',c:0x000000},{n:'CYAN',c:0x35f0ff},{n:'MAGENTA',c:0xff00aa},{n:'GRÜN',c:0x74ff6e},{n:'ORANGE',c:0xff7700},{n:'LILA',c:0xb06bff}];
@@ -632,7 +632,7 @@ let blobTex=null,blobMat=null,carBlob=null,pedBlob=null;
    (Asphalt | Gehwegplatten / Erde | Gras), city-detail-atlas 2x2 (Klinker | Kopfstein /
    Parkplatz | Steinplatten), city-props-atlas 4x4 Sprites mit Alpha. */
 let ATLAS={ground:null,detail:null,props:null,decals:null,facade:null,cloud:null,
-  facadeBrick:null,facadeGlass:null,roof:null},cityProps=[];
+  facadeBrick:null,facadeGlass:null,roof:null,shop:null},cityProps=[];
 let heatActive=false,heatTimer=0,heatPeak=0;
 const STATIONS=[
 /* hot-Flag = treibender Titel, läuft nur bei Verfolgung/Heat/Rennen. Die Einstufung stammt NICHT
@@ -1587,7 +1587,11 @@ function queryBuildingGrid(px,pz,r){
    gedehnt — ein 40m-Turm bekäme dieselbe Anzahl Plattenreihen wie ein 10m-Bau. Deshalb wird die
    UV im Vertex-Shader mit der Instanz-Skalierung multipliziert: gleiche Plattengröße überall,
    unabhängig von der Gebäudegröße. Die Instanzfarbe bleibt als Tönung erhalten. */
-function makeFacadeMaterial(img){
+/* tu/tv = Kachelgröße in Welteinheiten (quer/hoch). Fassaden kacheln grob alle 26 Einheiten,
+   Ladenzeilen brauchen ein viel feineres Raster: eine Ladeneinheit pro ~6 Einheiten Breite und
+   genau eine Texturhöhe über die gesamte Erdgeschosshöhe. */
+function makeFacadeMaterial(img,tu,tv){
+  tu=tu||26.0;tv=tv||26.0;
   const m=new THREE.MeshLambertMaterial();
   if(!img)return m;
   const t=new THREE.CanvasTexture(img);
@@ -1606,7 +1610,7 @@ function makeFacadeMaterial(img){
       '  if(an.y>0.5) sc=vec2(sx,sz);\n'+
       '  else if(an.x>0.5) sc=vec2(sz,sy);\n'+
       '  else sc=vec2(sx,sy);\n'+
-      '  vUv=uv*sc/26.0;\n'+
+      '  vUv=uv*sc/vec2('+tu.toFixed(2)+','+tv.toFixed(2)+');\n'+
       '#endif\n');
   };
   return m;
@@ -1644,6 +1648,23 @@ function buildCityMeshes(){
     mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;
     mesh.castShadow=mesh.receiveShadow=true;scene.add(mesh);
   });
+  /* Erdgeschoss-Ladenzeile: Bisher liefen die Fassaden bis auf den Bordstein durch — auf
+     Augenhöhe war die Stadt dadurch eine reine Wandflucht und wirkte leblos. Ein umlaufendes
+     Band mit Schaufenstern, Markisen und Schildern gibt der Straßenebene Inhalt. Ein einziges
+     InstancedMesh, die UV-Skalierung im Shader setzt pro Gebäude die passende Ladenanzahl. */
+  const shopSrc=B.filter(b=>b.h>6&&b.w>5&&b.d>5);
+  if(ATLAS.shop&&shopSrc.length){
+    const SH=3.6;
+    const shopMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),
+      makeFacadeMaterial(ATLAS.shop,6.0,SH),shopSrc.length);
+    shopSrc.forEach((b,k)=>{
+      M1.compose(T1.set(b.x,SH/2,b.z),Q1.identity(),T2.set(b.w+.14,SH,b.d+.14));
+      shopMesh.setMatrixAt(k,M1);
+      shopMesh.setColorAt(k,C1.setScalar(rnd(.88,1.0)));
+    });
+    shopMesh.instanceMatrix.needsUpdate=true;shopMesh.instanceColor.needsUpdate=true;
+    shopMesh.castShadow=false;shopMesh.receiveShadow=true;scene.add(shopMesh);
+  }
   const sorted=[...B].sort((a,b)=>Math.hypot(a.x,a.z)-Math.hypot(b.x,b.z));
   const wins=[];let cap=QUALITY.winCap; /* Laufzeit-Optimierung: 9000→QUALITY.winCap Fenster-Instanzen (weniger Füllrate/Vertices pro Frame, nächste Gebäude zuerst dank Distanzsortierung; auf Mobilgeräten zusätzlich reduziert, siehe init()) */
   const faces=[[0,1,0],[0,-1,Math.PI],[1,0,Math.PI/2],[-1,0,-Math.PI/2]];
@@ -2280,7 +2301,7 @@ function buildPedestrian(){
   const legL=new THREE.Mesh(legGeo,pantsM);legL.position.set(-.15,.48,0);g.add(legL);
   const legR=new THREE.Mesh(legGeo,pantsM);legR.position.set(.15,.48,0);g.add(legR);
   [-1,1].forEach(s=>{const kn=new THREE.Mesh(new THREE.SphereGeometry(.095,8,6),pantsM);
-    kn.position.set(s*.15,.5,0);g.add(kn);});
+    kn.position.set(s*.15,.5,0);g.add(kn);small.push(kn);});
   const shoeGeo=roundedBox(.21,.13,.33,.06);
   const shoeL=new THREE.Mesh(shoeGeo,shoeM);shoeL.position.set(0,-.36,.05);legL.add(shoeL);
   const shoeR=new THREE.Mesh(shoeGeo,shoeM);shoeR.position.set(0,-.36,.05);legR.add(shoeR);
@@ -2297,17 +2318,18 @@ function makeNPC(){
   const shirtM=new THREE.MeshLambertMaterial({color:shirt});
   const skinM=new THREE.MeshLambertMaterial({color:skin});
   const pantsM=new THREE.MeshLambertMaterial({color:0x334455});
+  const small=[];   /* Detailteile, die weiter weg nicht mehr auffallen */
   const t=new THREE.Mesh(roundedBox(.6,.8,.4,.16),shirtM);t.position.y=1.2;g.add(t);
   const hips=new THREE.Mesh(roundedBox(.52,.24,.36,.11),pantsM);hips.position.y=.84;g.add(hips);
   [-1,1].forEach(s=>{const sh=new THREE.Mesh(new THREE.SphereGeometry(.155,8,6),shirtM);
-    sh.position.set(s*.3,1.48,0);sh.scale.set(1,.85,1);g.add(sh);});
+    sh.position.set(s*.3,1.48,0);sh.scale.set(1,.85,1);g.add(sh);small.push(sh);});
   const armGeo=new THREE.CylinderGeometry(.08,.065,.6,7);
   const armL=new THREE.Mesh(armGeo,shirtM);armL.position.set(-.4,1.22,0);g.add(armL);
   const armR=new THREE.Mesh(armGeo,shirtM);armR.position.set(.4,1.22,0);g.add(armR);
   const handL=new THREE.Mesh(new THREE.SphereGeometry(.08,6,5),skinM);handL.position.set(0,-.33,0);armL.add(handL);
   const handR=new THREE.Mesh(new THREE.SphereGeometry(.08,6,5),skinM);handR.position.set(0,-.33,0);armR.add(handR);
   const h=new THREE.Mesh(new THREE.SphereGeometry(.25,12,10),skinM);h.position.y=1.85;h.scale.set(.94,1.06,1);g.add(h);
-  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,.14,7),skinM);neck.position.y=1.64;g.add(neck);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,.14,7),skinM);neck.position.y=1.64;g.add(neck);small.push(neck);
   const legGeo=new THREE.CylinderGeometry(.11,.088,.7,7);
   const legL=new THREE.Mesh(legGeo,pantsM);legL.position.set(-.15,.45,0);g.add(legL);
   const legR=new THREE.Mesh(legGeo,pantsM);legR.position.set(.15,.45,0);g.add(legR);
@@ -2320,7 +2342,7 @@ function makeNPC(){
   umb.position.y=2.2;umb.visible=false;g.add(umb);
   g.add(makeBlobShadow(1.5,1.5,.03));
   g.position.set(rnd(-CITY,CITY),0,rnd(-CITY,CITY));
-  g.userData={dir:new THREE.Vector3(rnd(-1,1),0,rnd(-1,1)).normalize(),speed:rnd(1.5,3.5),timer:rnd(0,5),phase:Math.random()*6,down:false,jumpT:0,legL,legR,armL,armR,umb,handL,handR,shoeL,shoeR};
+  g.userData={dir:new THREE.Vector3(rnd(-1,1),0,rnd(-1,1)).normalize(),speed:rnd(1.5,3.5),timer:rnd(0,5),phase:Math.random()*6,down:false,jumpT:0,legL,legR,armL,armR,umb,handL,handR,shoeL,shoeR,small};
   scene.add(g);return g;
 }
 function makePolice(){
@@ -3189,7 +3211,7 @@ async function init(){
   MOBILE=('ontouchstart' in window)||navigator.maxTouchPoints>0||matchMedia('(pointer:coarse)').matches;
   if(MOBILE){
     document.body.classList.add('mobile');
-    QUALITY={winCap:2200,shadows:false,traffic:8,npcs:9,bloomScale:.26,pixelCap:1.0,antialias:false,groundTexSize:1024};
+    QUALITY={winCap:2200,shadows:false,traffic:12,npcs:18,bloomScale:.26,pixelCap:1.0,antialias:false,groundTexSize:1024};
   }
   /* Orientierung per JS statt nur @media (orientation:) -- manche mobilen Browser lassen die
      CSS-Media-Query nach hochkant->quer->hochkant hängen, wodurch HUD-Elemente zu klein bleiben. */
@@ -3228,7 +3250,7 @@ async function init(){
   setLoad(20,'Texturen werden geladen\u2026');await nextFrame();
   /* Atlanten vor makeGroundTexture() laden \u2014 die Bodentextur wird einmalig gezeichnet und braucht
      die Kacheln als CanvasPattern. Schl\u00e4gt das Laden fehl (null), greifen \u00fcberall die alten Vollt\u00f6ne. */
-  const [gA,dA,pA,kA,fA,cA,fB,fG,rF]=await Promise.all([
+  const [gA,dA,pA,kA,fA,cA,fB,fG,rF,sF]=await Promise.all([
     loadImage('assets/tiles/city-ground-atlas.jpg'),
     loadImage('assets/tiles/city-detail-atlas-v2.jpg'),
     loadImage('assets/sprites/city-props-atlas-v1.png'),
@@ -3237,9 +3259,10 @@ async function init(){
     loadImage('assets/tiles/cloud.png'),
     loadImage('assets/tiles/facade-brick.jpg'),
     loadImage('assets/tiles/facade-glass.jpg'),
-    loadImage('assets/tiles/roof.jpg')]);
+    loadImage('assets/tiles/roof.jpg'),
+    loadImage('assets/tiles/shopfront.jpg')]);
   ATLAS.ground=gA;ATLAS.detail=dA;ATLAS.props=pA;ATLAS.decals=kA;ATLAS.facade=fA;ATLAS.cloud=cA;
-  ATLAS.facadeBrick=fB;ATLAS.facadeGlass=fG;ATLAS.roof=rF;
+  ATLAS.facadeBrick=fB;ATLAS.facadeGlass=fG;ATLAS.roof=rF;ATLAS.shop=sF;
   setLoad(24,'Texturen werden gezeichnet\u2026');await nextFrame();
   groundMat=new THREE.MeshPhongMaterial({map:makeGroundTexture(),shininess:6,specular:0x0d0d0d});
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,800),groundMat);
@@ -3587,7 +3610,8 @@ function update(dt){
     u.timer-=sdt;if(u.timer<=0){u.dir.set(rnd(-1,1),0,rnd(-1,1)).normalize();u.timer=rnd(2,6);}
     const d=n.position.distanceTo(car.position);
     const nearNPC=n.position.distanceTo(onFoot?pedPos:car.position)<55;
-    if(u.handL.visible!==nearNPC){u.handL.visible=u.handR.visible=u.shoeL.visible=u.shoeR.visible=nearNPC;}
+    if(u.handL.visible!==nearNPC){u.handL.visible=u.handR.visible=u.shoeL.visible=u.shoeR.visible=nearNPC;
+      if(u.small)for(const sm of u.small)sm.visible=nearNPC;}
     if(d<6&&spd>5){T1.copy(n.position).sub(car.position).normalize();n.position.addScaledVector(T1,9*sdt);}
     else n.position.addScaledVector(u.dir,u.speed*sdt);
     const sw=Math.sin(time*8+u.phase)*.5;
