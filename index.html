@@ -616,7 +616,7 @@ let blobTex=null,blobMat=null,carBlob=null,pedBlob=null;
 /* Textur-Atlanten aus dem eigenen Asphaltkoenig-Projekt (assets/): city-ground-atlas 2x2
    (Asphalt | Gehwegplatten / Erde | Gras), city-detail-atlas 2x2 (Klinker | Kopfstein /
    Parkplatz | Steinplatten), city-props-atlas 4x4 Sprites mit Alpha. */
-let ATLAS={ground:null,detail:null,props:null,decals:null},cityProps=[];
+let ATLAS={ground:null,detail:null,props:null,decals:null,facade:null,cloud:null},cityProps=[];
 let heatActive=false,heatTimer=0,heatPeak=0;
 const STATIONS=[
  {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
@@ -1422,9 +1422,38 @@ function queryBuildingGrid(px,pz,r){
     const cell=buildingGrid.get(gx+','+gz);if(cell)for(const b of cell)out.push(b);}
   return out;
 }
+/* Fassadenmaterial: Alle Gebäude teilen sich EINE Box-Geometrie (InstancedMesh) und werden nur
+   unterschiedlich skaliert. Eine Textur mit festen UVs würde dadurch bei jedem Haus anders stark
+   gedehnt — ein 40m-Turm bekäme dieselbe Anzahl Plattenreihen wie ein 10m-Bau. Deshalb wird die
+   UV im Vertex-Shader mit der Instanz-Skalierung multipliziert: gleiche Plattengröße überall,
+   unabhängig von der Gebäudegröße. Die Instanzfarbe bleibt als Tönung erhalten. */
+function makeFacadeMaterial(){
+  const m=new THREE.MeshLambertMaterial();
+  if(!ATLAS.facade)return m;
+  const t=new THREE.CanvasTexture(ATLAS.facade);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  m.map=t;
+  m.onBeforeCompile=sh=>{
+    sh.vertexShader=sh.vertexShader.replace('#include <uv_vertex>',
+      '#include <uv_vertex>\n'+
+      '#ifdef USE_INSTANCING\n'+
+      '  float sx=length(instanceMatrix[0].xyz);\n'+
+      '  float sy=length(instanceMatrix[1].xyz);\n'+
+      '  float sz=length(instanceMatrix[2].xyz);\n'+
+      '  vec3 an=abs(normal);\n'+
+      '  vec2 sc;\n'+
+      '  if(an.y>0.5) sc=vec2(sx,sz);\n'+
+      '  else if(an.x>0.5) sc=vec2(sz,sy);\n'+
+      '  else sc=vec2(sx,sy);\n'+
+      '  vUv=uv*sc/26.0;\n'+
+      '#endif\n');
+  };
+  return m;
+}
 function buildCityMeshes(){
   const B=buildingsData;
-  const bMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial(),B.length);
+  const bMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),makeFacadeMaterial(),B.length);
   B.forEach((b,k)=>{M1.compose(T1.set(b.x,b.h/2,b.z),Q1.identity(),T2.set(b.w,b.h,b.d));
     bMesh.setMatrixAt(k,M1);bMesh.setColorAt(k,C1.setHex(b.col));});
   bMesh.instanceMatrix.needsUpdate=true;bMesh.instanceColor.needsUpdate=true;
@@ -1575,9 +1604,13 @@ function buildSky(){
   for(let i=0;i<6;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:btex,transparent:true,opacity:0,depthWrite:false}));
     s.scale.set(4,2,1);s.userData={r:rnd(140,340),h:rnd(45,85),sp:rnd(.04,.11)*(Math.random()<.5?1:-1),ph:rnd(0,6),cx:rnd(-100,100),cz:rnd(-100,100),i};
     scene.add(s);birds.push(s);}
-  const cm=new THREE.SpriteMaterial({map:softTex,color:0xffffff,transparent:true,opacity:.6,depthWrite:false});
-  for(let i=0;i<10;i++){const s=new THREE.Sprite(cm.clone());
-    s.position.set(rnd(-500,500),rnd(95,150),rnd(-500,500));s.scale.set(rnd(50,110),rnd(18,34),1);
+  /* Wolken: eigene klumpige Textur statt des weichen Radialverlaufs (softTex), der als Wolke
+     nur als runder Fleck lesbar war. Fallback bleibt softTex, falls die Datei nicht lädt. */
+  const cloudTex=ATLAS.cloud?new THREE.CanvasTexture(ATLAS.cloud):softTex;
+  const cm=new THREE.SpriteMaterial({map:cloudTex,color:0xffffff,transparent:true,opacity:.62,depthWrite:false,fog:false});
+  for(let i=0;i<14;i++){const s=new THREE.Sprite(cm.clone());
+    s.position.set(rnd(-500,500),rnd(95,155),rnd(-500,500));s.scale.set(rnd(60,130),rnd(22,44),1);
+    s.material.opacity=rnd(.42,.7);
     s.userData.v=rnd(2,6);scene.add(s);clouds.push(s);}
 }
 
@@ -1965,7 +1998,13 @@ function makeSimpleCar(colHex){
   cab.position.set(0,.98,-bl*.04);g.add(cab);
   const bmp=new THREE.Mesh(new THREE.BoxGeometry(bw+.05,.2,.28),dark);
   bmp.position.set(0,.26,bl/2+.05);g.add(bmp);
-  const bmp2=bmp.clone();bmp2.position.z=-bl/2-.05;g.add(bmp2);
+  /* Heckleuchten mit EIGENEM Material je Fahrzeug — der Verkehr bremst bereits an Ampeln und vor
+     dem Spieler, bisher war davon nur nichts zu sehen. Geteiltes Material ginge nicht: dann würden
+     alle Autos der Stadt gleichzeitig aufleuchten. */
+  const brakeMat=new THREE.MeshBasicMaterial({color:0x330b0b});
+  const bmp2=new THREE.Mesh(new THREE.BoxGeometry(bw+.05,.2,.28),brakeMat);
+  bmp2.position.set(0,.26,-bl/2-.05);g.add(bmp2);
+  g.userData.brakeMat=brakeMat;
   const wg=new THREE.CylinderGeometry(.4,.4,.3,8),wm=new THREE.MeshLambertMaterial({color:0x0d0d0d});
   [[-1,1.35],[1,1.35],[-1,-1.35],[1,-1.35]].forEach(([x,z])=>{
     const w=new THREE.Mesh(wg,wm);w.rotation.z=Math.PI/2;w.position.set(x*bw/2*.98,.4,z);g.add(w);});
@@ -1989,7 +2028,8 @@ function makeTrafficCar(){
   }else{
     g=makeSimpleCar(cols[Math.floor(Math.random()*cols.length)]);
   }
-  const u={speed:isTruck?rnd(7,12):rnd(8,19),sc:1,nm:-9,headMat:null};
+  const u={speed:isTruck?rnd(7,12):rnd(8,19),sc:1,nm:-9,headMat:null,
+    brakeMat:g.userData&&g.userData.brakeMat||null,prevSc:1};
   const hm=new THREE.MeshBasicMaterial({color:0x555548});u.headMat=hm;
   g.userData=u;
   const road=(Math.floor(Math.random()*19)-9)*BLOCK,along=rnd(-CITY,CITY),horiz=Math.random()>.5;
@@ -2916,12 +2956,14 @@ async function init(){
   setLoad(20,'Texturen werden geladen\u2026');await nextFrame();
   /* Atlanten vor makeGroundTexture() laden \u2014 die Bodentextur wird einmalig gezeichnet und braucht
      die Kacheln als CanvasPattern. Schl\u00e4gt das Laden fehl (null), greifen \u00fcberall die alten Vollt\u00f6ne. */
-  const [gA,dA,pA,kA]=await Promise.all([
+  const [gA,dA,pA,kA,fA,cA]=await Promise.all([
     loadImage('assets/tiles/city-ground-atlas.jpg'),
     loadImage('assets/tiles/city-detail-atlas-v2.jpg'),
     loadImage('assets/sprites/city-props-atlas-v1.png'),
-    loadImage('assets/tiles/road-decals.png')]);
-  ATLAS.ground=gA;ATLAS.detail=dA;ATLAS.props=pA;ATLAS.decals=kA;
+    loadImage('assets/tiles/road-decals.png'),
+    loadImage('assets/tiles/facade.jpg'),
+    loadImage('assets/tiles/cloud.png')]);
+  ATLAS.ground=gA;ATLAS.detail=dA;ATLAS.props=pA;ATLAS.decals=kA;ATLAS.facade=fA;ATLAS.cloud=cA;
   setLoad(24,'Texturen werden gezeichnet\u2026');await nextFrame();
   groundMat=new THREE.MeshPhongMaterial({map:makeGroundTexture(),shininess:6,specular:0x0d0d0d});
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,800),groundMat);
@@ -3247,6 +3289,12 @@ function update(dt){
       addStunt('NEAR MISS',150);popup('NEAR MISS \u00D7'+combo+'  +$'+rw,'cyan');sfxWhoosh();}
     if(d<4.2&&honkCd<=0&&!dead){honkCd=4;sfxHonk();}
     u.sc+=(target-u.sc)*Math.min(1,sdt*3);
+    /* Bremslicht: leuchtet, wenn das Fahrzeug spürbar verzögert oder fast steht */
+    if(u.brakeMat){
+      const braking=(u.sc<u.prevSc-.004)||u.sc<.35;
+      u.brakeMat.color.setHex(braking?0xff2a12:0x330b0b);
+      u.prevSc=u.sc;
+    }
     const sp=u.speed*u.sc;
     t.position.x+=dirx*sp*sdt;t.position.z+=dirz*sp*sdt;
     if(Math.abs(t.position.x)>CITY)t.position.x*=-1;
