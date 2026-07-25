@@ -632,7 +632,7 @@ let blobTex=null,blobMat=null,carBlob=null,pedBlob=null;
    (Asphalt | Gehwegplatten / Erde | Gras), city-detail-atlas 2x2 (Klinker | Kopfstein /
    Parkplatz | Steinplatten), city-props-atlas 4x4 Sprites mit Alpha. */
 let ATLAS={ground:null,detail:null,props:null,decals:null,facade:null,cloud:null,
-  facadeBrick:null,facadeGlass:null},cityProps=[];
+  facadeBrick:null,facadeGlass:null,roof:null},cityProps=[];
 let heatActive=false,heatTimer=0,heatPeak=0;
 const STATIONS=[
 /* hot-Flag = treibender Titel, läuft nur bei Verfolgung/Heat/Rennen. Die Einstufung stammt NICHT
@@ -1053,9 +1053,15 @@ const STORY=[
  {t:'ASPHALTKÖNIG',type:'race',pay:10000,
   d:'Karla: Rivas Leute lachen über dich. Fahr das Rennen und stopf ihnen das Maul.'},
  {t:'DER GROSSE BRUCH',type:'deliver_hot',need:4,pay:25000,
-  d:'Karla: Letzte Fuhre. Halbe Stadt sucht dich. Kommst du durch, gehört dir Mini City.'}
+  d:'Karla: Fuhre für den Boss. Halbe Stadt sucht dich. Kommst du durch, redet man über dich.'},
+ {t:'KALTE SPUR',type:'escape',secs:60,pay:14000,
+  d:'Karla: Sie kleben dir im Nacken. Verschwinde vom Radar — eine Minute, dann bist du sauber oder erledigt.'},
+ {t:'SAMMELSTELLE',type:'collect',need:3,pay:12000,
+  d:'Karla: Drei Pakete liegen noch in der Stadt. Hol sie rein, bevor jemand anders zugreift.'},
+ {t:'DIE ÜBERNAHME',type:'deliver_hot',need:5,pay:40000,
+  d:'Karla: Riva ist raus. Fünf Sterne, letzte Fahrt — danach gehört Mini City dir.'}
 ];
-let storyStep=0,storyActive=false,storyType='',storyNeed=0;
+let storyStep=0,storyActive=false,storyType='',storyNeed=0,storyTimer=0,storyTarget=0;
 function storyStart(){
   if(dead||onFoot){popup('STORY NUR IM AUTO','red');return;}
   if(storyActive){popup('KAPITEL LÄUFT BEREITS','red');return;}
@@ -1070,6 +1076,11 @@ function storyStart(){
   if(ch.type==='survive'){
     heatActive=true;heatTimer=ch.secs;heatPeak=Math.max(3,Math.floor(wanted));
     wanted=Math.max(wanted,3);sfxStatic();
+  }else if(ch.type==='escape'){
+    /* Gegenstück zu "survive": hier musst du die Fahndung LOSWERDEN, nicht halten. */
+    wanted=Math.max(wanted,3);storyTimer=ch.secs;sfxStatic();
+  }else if(ch.type==='collect'){
+    storyTarget=packagesGot+ch.need;
   }else if(ch.type==='race'){
     if(!raceMode)startRace();
   }else{
@@ -1613,9 +1624,15 @@ function buildCityMeshes(){
   const groups=[[],[],[]];
   B.forEach(b=>groups[styleOf(b)].push(b));
   const imgs=[ATLAS.facade,ATLAS.facadeBrick,ATLAS.facadeGlass];
+  /* Dach als eigenes Material auf der Oberseite: BoxGeometry hat sechs Materialgruppen
+     (+X,-X,+Y,-Y,+Z,-Z), Index 2 ist oben. Aus der Verfolgerkamera schaut man ständig auf die
+     Dächer — mit Fassadentextur sahen sie aus wie hochkant gestellte Wände. */
+  const roofMat=makeFacadeMaterial(ATLAS.roof);
   groups.forEach((grp,si)=>{
     if(!grp.length)return;
-    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),makeFacadeMaterial(imgs[si]),grp.length);
+    const side=makeFacadeMaterial(imgs[si]);
+    const mats=[side,side,roofMat,side,side,side];
+    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),mats,grp.length);
     grp.forEach((b,k)=>{
       M1.compose(T1.set(b.x,b.h/2,b.z),Q1.identity(),T2.set(b.w,b.h,b.d));
       mesh.setMatrixAt(k,M1);
@@ -3211,7 +3228,7 @@ async function init(){
   setLoad(20,'Texturen werden geladen\u2026');await nextFrame();
   /* Atlanten vor makeGroundTexture() laden \u2014 die Bodentextur wird einmalig gezeichnet und braucht
      die Kacheln als CanvasPattern. Schl\u00e4gt das Laden fehl (null), greifen \u00fcberall die alten Vollt\u00f6ne. */
-  const [gA,dA,pA,kA,fA,cA,fB,fG]=await Promise.all([
+  const [gA,dA,pA,kA,fA,cA,fB,fG,rF]=await Promise.all([
     loadImage('assets/tiles/city-ground-atlas.jpg'),
     loadImage('assets/tiles/city-detail-atlas-v2.jpg'),
     loadImage('assets/sprites/city-props-atlas-v1.png'),
@@ -3219,9 +3236,10 @@ async function init(){
     loadImage('assets/tiles/facade.jpg'),
     loadImage('assets/tiles/cloud.png'),
     loadImage('assets/tiles/facade-brick.jpg'),
-    loadImage('assets/tiles/facade-glass.jpg')]);
+    loadImage('assets/tiles/facade-glass.jpg'),
+    loadImage('assets/tiles/roof.jpg')]);
   ATLAS.ground=gA;ATLAS.detail=dA;ATLAS.props=pA;ATLAS.decals=kA;ATLAS.facade=fA;ATLAS.cloud=cA;
-  ATLAS.facadeBrick=fB;ATLAS.facadeGlass=fG;
+  ATLAS.facadeBrick=fB;ATLAS.facadeGlass=fG;ATLAS.roof=rF;
   setLoad(24,'Texturen werden gezeichnet\u2026');await nextFrame();
   groundMat=new THREE.MeshPhongMaterial({map:makeGroundTexture(),shininess:6,specular:0x0d0d0d});
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,800),groundMat);
@@ -3762,6 +3780,18 @@ function update(dt){
   if(pedBlob){
     pedBlob.visible=onFoot&&ped.visible;
     if(pedBlob.visible)pedBlob.position.set(pedPos.x,.03,pedPos.z);
+  }
+  /* Story-Kapitel, die nicht über Ankunft/Heat/Rennen abgeschlossen werden */
+  if(storyActive&&!dead){
+    if(storyType==='escape'){
+      storyTimer-=dt;
+      if(Math.floor(wanted)<1)storyComplete();
+      else if(storyTimer<=0)storyFail('Fahndung nicht abgeschüttelt');
+      else if(hudCd<=0)DOM.jobChip.innerHTML='🚨 ABHÄNGEN <b>'+Math.ceil(storyTimer)+'s</b> &nbsp;·&nbsp; <b>'+Math.floor(wanted)+'★</b>';
+    }else if(storyType==='collect'){
+      if(packagesGot>=storyTarget)storyComplete();
+      else if(hudCd<=0)DOM.jobChip.innerHTML='📦 PAKETE <b>'+Math.max(0,storyTarget-packagesGot)+'</b> offen';
+    }
   }
   updateMusicMood(dt);
   updateNavi();updateHUD(dt,dayT);drawMinimap();
