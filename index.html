@@ -244,7 +244,11 @@ box-shadow:0 0 22px currentColor,inset 0 0 14px rgba(255,255,255,.18)}
 #tcGas{right:calc(16px + env(safe-area-inset-right));bottom:calc(100px + env(safe-area-inset-bottom));width:100px;height:100px;font-size:18px;border-color:var(--mint);color:var(--mint)}
 #tcBrake{right:calc(126px + env(safe-area-inset-right));bottom:calc(112px + env(safe-area-inset-bottom));width:72px;height:72px;font-size:13px;border-color:#ff8a8a;color:#ff8a8a}
 #tcNitro{right:calc(30px + env(safe-area-inset-right));bottom:calc(210px + env(safe-area-inset-bottom));width:64px;height:64px;font-size:12px;border-color:var(--cyan);color:var(--cyan)}
-#tcAction{left:calc(22px + env(safe-area-inset-left));bottom:calc(192px + env(safe-area-inset-bottom));width:58px;height:58px;font-size:11px;border-color:#fff;color:#fff}
+/* Ein-/Aussteigen sitzt bewusst UNTERHALB der Lenktasten (Hochkant) bzw. mittig am unteren Rand
+   (Querformat). Vorher klebte er im Querformat 8px neben der rechten Lenktaste und überlappte sie
+   sogar vertikal — beim Lenken stieg man dadurch versehentlich aus. */
+#tcAction{left:calc(150px + env(safe-area-inset-left));bottom:calc(16px + env(safe-area-inset-bottom));
+  width:58px;height:58px;font-size:11px;border-color:var(--gold);color:var(--gold)}
 #tcJoyBase{position:fixed;display:none;left:calc(26px + env(safe-area-inset-left));bottom:calc(26px + env(safe-area-inset-bottom));
   width:132px;height:132px;border-radius:50%;border:2px solid rgba(255,255,255,.28);
   background:radial-gradient(circle at 50% 50%,rgba(20,28,48,.6),rgba(8,12,24,.72));
@@ -319,8 +323,9 @@ body.mobile.is-landscape #tcRight{width:70px;height:70px;font-size:27px;
   left:calc(90px + env(safe-area-inset-left));bottom:calc(74px + env(safe-area-inset-bottom))}
 body.mobile.is-landscape #tcHandbrake{width:56px;height:56px;font-size:12px;
   left:calc(46px + env(safe-area-inset-left));bottom:calc(12px + env(safe-area-inset-bottom))}
-body.mobile.is-landscape #tcAction{width:52px;height:52px;font-size:10px;
-  left:calc(168px + env(safe-area-inset-left));bottom:calc(80px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcAction{width:54px;height:54px;font-size:10px;
+  left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom))}
+body.mobile.is-landscape #tcAction.on{transform:translateX(-50%) scale(.94)}
 body.mobile.is-landscape #tcGas{width:86px;height:86px;font-size:16px;
   right:calc(14px + env(safe-area-inset-right));bottom:calc(70px + env(safe-area-inset-bottom))}
 body.mobile.is-landscape #tcBrake{width:64px;height:64px;font-size:12px;
@@ -334,7 +339,11 @@ body.mobile.onfoot #tcMenuBtn{top:calc(232px + env(safe-area-inset-top))}
 body.mobile.onfoot #tcMenuPanel{top:calc(284px + env(safe-area-inset-top))}
 body.mobile.is-landscape.onfoot #tcMenuBtn{top:calc(194px + env(safe-area-inset-top))}
 body.mobile.is-landscape.onfoot #tcMenuPanel{top:auto;bottom:calc(30px + env(safe-area-inset-bottom))}
-body.mobile.is-landscape.onfoot #tcAction{left:calc(172px + env(safe-area-inset-left));bottom:calc(30px + env(safe-area-inset-bottom))}
+/* Laufmodus: Lenktasten sind aus, der Knopf darf wieder nach links — transform zurücksetzen,
+   sonst zöge die Zentrierung aus der Querformat-Regel ihn um die halbe Breite daneben. */
+body.mobile.is-landscape.onfoot #tcAction{left:calc(172px + env(safe-area-inset-left));
+  bottom:calc(30px + env(safe-area-inset-bottom));transform:none}
+body.mobile.is-landscape.onfoot #tcAction.on{transform:scale(.94)}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:none;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
@@ -631,6 +640,10 @@ const STATIONS=[
    {title:'BOULEVARD HEAT LOOP',file:'radio/boulevard-heat-loop.mp3'},
    {title:'FIVE STAR MAYHEM',file:'radio/five-star-mayhem.mp3'},
    {title:'JET FUEL GLORY',file:'radio/jet-fuel-glory.mp3'}]},
+ {name:'APEX FM',tag:'RENNFUNK',bpm:0,mp3:true,tracks:[
+   {title:'MUDLINE OVERDRIVE',file:'radio/mudline-overdrive.mp3'},
+   {title:'KARTFIRE PARADE',file:'radio/kartfire-parade.mp3'},
+   {title:'CLIFFLINE RUN',file:'radio/cliffline-run.mp3'}]},
  {name:'NACHTFALTER FM',tag:'SPÄTPROGRAMM',bpm:0,mp3:true,tracks:[
    {title:'NACHTFALTER FM',file:'radio/nachtfalter-fm.mp3'},
    {title:'BETONHAIN NIGHT',file:'radio/betonhain-night.mp3'},
@@ -692,7 +705,21 @@ function initAudio(){
   mp3Source=actx.createMediaElementSource(radioAudio);mp3Source.connect(mp3Gain);
   radioAudio.addEventListener('ended',()=>{const st=STATIONS[stationIdx];
     if(st&&st.mp3){mp3TrackIdx=(mp3TrackIdx+1)%st.tracks.length;playMp3Track(mp3TrackIdx);}});
+  shuffleRadio();
   if(STATIONS[stationIdx].mp3)playMp3Track(mp3TrackIdx);
+}
+/* Beim Spielstart wird die Titelreihenfolge jedes MP3-Senders neu gemischt und ein zufälliger
+   Einstiegstitel gewählt — sonst begrüßt einen jede Sitzung mit exakt demselben Song. */
+function shuffleRadio(){
+  for(const st of STATIONS){
+    if(!st.mp3||!st.tracks)continue;
+    for(let i=st.tracks.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      const t=st.tracks[i];st.tracks[i]=st.tracks[j];st.tracks[j]=t;
+    }
+  }
+  const cur=STATIONS[stationIdx];
+  mp3TrackIdx=cur&&cur.mp3?Math.floor(Math.random()*cur.tracks.length):0;
 }
 function playMp3Track(idx){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
   mp3TrackIdx=idx%st.tracks.length;mp3StationIdx=stationIdx;
