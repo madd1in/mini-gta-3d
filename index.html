@@ -3608,11 +3608,13 @@ function update(dt){
     /* Bei laufender Verfolgung macht der Verkehr Platz: abbremsen und zur Seite ausweichen.
        Das macht die Sirenen spürbar und öffnet dir eine Gasse, statt dass die Stadt unbeeindruckt
        weiterrollt. Seitversatz quer zur Fahrtrichtung, damit die Autos in ihrer Spur bleiben. */
-    if(wanted>=2&&d<26&&!dead){
-      target=Math.min(target,.25);
+    if(wanted>=2&&d<30&&!dead){
+      target=Math.min(target,.12);
       const sx=dirz,sz=-dirx;                      /* Normale zur Fahrtrichtung */
       const side=((t.position.x-car.position.x)*sx+(t.position.z-car.position.z)*sz)>=0?1:-1;
-      const push=Math.min(1,(26-d)/26)*2.6*sdt*side;
+      /* 6.5 statt 2.6: mit dem ersten Wert wich ein Wagen in einer halben Sekunde nur ~0.8
+         Einheiten aus — viel zu wenig, um eine Spur freizugeben, und damit unsichtbar. */
+      const push=Math.min(1,(30-d)/22)*6.5*sdt*side;
       t.position.x+=sx*push;t.position.z+=sz*push;
     }
     u.sc+=(target-u.sc)*Math.min(1,sdt*3);
