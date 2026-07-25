@@ -610,20 +610,27 @@ function djSay(text){if(djCd>0)return;djCd=8;
 
 /* ============ AUDIO ============ */
 let actx,master,musicG,musicLP,sfxG,engMaster,engOsc1,engOsc2,engFilter,engGain,driftGain,sirenOsc,sirenGain,delayNode,noiseBuf,muted=false,nextNote=0,seqStep=0,stationIdx=0;
-let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0;
+let radioAudio,mp3Gain,mp3Source,mp3TrackIdx=0,mp3StationIdx=-1;
 let lookX=0,lookY=0,walkX=0,walkY=0;
 let blobTex=null,blobMat=null,carBlob=null,pedBlob=null;
 /* Textur-Atlanten aus dem eigenen Asphaltkoenig-Projekt (assets/): city-ground-atlas 2x2
    (Asphalt | Gehwegplatten / Erde | Gras), city-detail-atlas 2x2 (Klinker | Kopfstein /
    Parkplatz | Steinplatten), city-props-atlas 4x4 Sprites mit Alpha. */
-let ATLAS={ground:null,detail:null,props:null},cityProps=[];
+let ATLAS={ground:null,detail:null,props:null,decals:null},cityProps=[];
 let heatActive=false,heatTimer=0,heatPeak=0;
 const STATIONS=[
  {name:'MINI CITY FM',tag:'ORIGINAL MIX',bpm:0,mp3:true,tracks:[
    {title:'NEON HEIST RUN',file:'radio/neon-heist-run.mp3'},
    {title:'VICE COAST RUN',file:'radio/vice-coast-run.mp3'},
    {title:'BOULEVARD HEAT LOOP',file:'radio/boulevard-heat-loop.mp3'},
-   {title:'FIVE STAR MAYHEM',file:'radio/five-star-mayhem.mp3'}]},
+   {title:'FIVE STAR MAYHEM',file:'radio/five-star-mayhem.mp3'},
+   {title:'JET FUEL GLORY',file:'radio/jet-fuel-glory.mp3'}]},
+ {name:'NACHTFALTER FM',tag:'SPÄTPROGRAMM',bpm:0,mp3:true,tracks:[
+   {title:'NACHTFALTER FM',file:'radio/nachtfalter-fm.mp3'},
+   {title:'BETONHAIN NIGHT',file:'radio/betonhain-night.mp3'},
+   {title:'RADIO CHROM',file:'radio/radio-chrom.mp3'},
+   {title:'BASSKELLER',file:'radio/basskeller.mp3'},
+   {title:'FUNK 88.8',file:'radio/funk-88-8.mp3'}]},
  {name:'TURBO FM',tag:'SYNTHWAVE',bpm:112,swing:0,chords:[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],roots:[33,29,36,31],bassMode:0,arp:1,lead:1,kick:[0,4,8,12],snare:[4,12],hats:'all',leadPat:[76,null,74,null,72,null,74,76,null,79,null,76,null,74,72,null,null]},
  {name:'NIGHT DRIVE',tag:'LO-FI CHILL',bpm:74,swing:.16,chords:[[59,62,66,69],[55,59,62,66],[52,55,59,62],[57,60,64,67]],roots:[35,31,28,33],bassMode:1,arp:0,lead:0,kick:[0,7,10],snare:[8],hats:'off',leadPat:null},
  {name:'NITRO FM',tag:'BREAKBEAT',bpm:152,swing:0,chords:[[57,60,64],[55,59,62],[57,60,64],[50,53,57]],roots:[33,31,33,26],bassMode:2,arp:2,lead:0,kick:[0,10],snare:[4,12],hats:'all',leadPat:null},
@@ -682,10 +689,14 @@ function initAudio(){
   if(STATIONS[stationIdx].mp3)playMp3Track(mp3TrackIdx);
 }
 function playMp3Track(idx){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
-  mp3TrackIdx=idx;const tr=st.tracks[idx];radioAudio.src=tr.file;radioAudio.currentTime=0;
+  mp3TrackIdx=idx%st.tracks.length;mp3StationIdx=stationIdx;
+  const tr=st.tracks[mp3TrackIdx];radioAudio.src=tr.file;radioAudio.currentTime=0;
   radioAudio.play().catch(()=>{});if(DOM.npName)DOM.npName.textContent=tr.title;}
+/* Beim Wechsel ZWISCHEN zwei MP3-Sendern muss ein neuer Track geladen werden — sonst liefe der
+   Titel des vorherigen Senders weiter. Nur bei Rückkehr zum selben Sender wird fortgesetzt. */
 function resumeMp3(){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
-  if(radioAudio.src)radioAudio.play().catch(()=>{});else playMp3Track(mp3TrackIdx);
+  if(mp3StationIdx!==stationIdx||!radioAudio.src){playMp3Track(0);return;}
+  radioAudio.play().catch(()=>{});
   if(DOM.npName)DOM.npName.textContent=st.tracks[mp3TrackIdx].title;}
 function stopMp3(){if(radioAudio)radioAudio.pause();}
 function env(g,t,a,peak,dec){g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(.001,t+a+dec);}
@@ -1198,6 +1209,47 @@ function buildTiledSurfaces(){
     m.receiveShadow=true;scene.add(m);return m;};
   mk(rp,ru,makeRoadTexture());
   mk(wp,wu,makeWalkTexture());
+}
+/* Fahrbahn-Decals (Zebrastreifen, Pfeile, Gullydeckel) aus dem neon-heist-city-Atlas.
+   Die Vorlage ist nass/neonbeleuchtet — beim Erzeugen von assets/tiles/road-decals.png wurden die
+   Kacheln entsättigt und per Alpha freigestellt, sodass nur Anstrich bzw. Deckel übrig bleiben und
+   sie sich auf jeder Straßentextur ohne sichtbare Kante einfügen. Alles in EINER Geometrie. */
+function pushDecalQuad(pos,uv,x0,z0,x1,z1,y,u0,v0,u1,v1,rot){
+  const q=[[x0,z0],[x1,z0],[x1,z1],[x0,z1]];
+  const uvs=rot?[[u0,v0],[u0,v1],[u1,v1],[u1,v0]]:[[u0,v0],[u1,v0],[u1,v1],[u0,v1]];
+  const order=[0,2,1,0,3,2];
+  for(const i of order){pos.push(q[i][0],y,q[i][1]);uv.push(uvs[i][0],uvs[i][1]);}
+}
+function buildRoadDecals(){
+  if(!ATLAS.decals)return;
+  const E=.004,CW=[E,.5+E,.5-E,1-E],AR=[.5+E,.5+E,1-E,1-E],
+        MH=[E,E,.5-E,.5-E],DR=[.5+E,E,1-E,.5-E]; /* [u0,v0,u1,v1] je Zelle (flipY: untere Reihe = v 0..0.5) */
+  const p=[],u=[],Y=.03,R=6;
+  for(let i=-CITY;i<=CITY;i+=BLOCK)for(let j=-CITY;j<=CITY;j+=BLOCK){
+    /* Zebrastreifen an allen vier Kreuzungsarmen; Streifen laufen längs der Fahrtrichtung */
+    pushDecalQuad(p,u,i-R,j-9.5,i+R,j-R,Y,CW[0],CW[1],CW[2],CW[3],true);
+    pushDecalQuad(p,u,i-R,j+R,i+R,j+9.5,Y,CW[0],CW[1],CW[2],CW[3],true);
+    pushDecalQuad(p,u,i-9.5,j-R,i-R,j+R,Y,CW[0],CW[1],CW[2],CW[3],false);
+    pushDecalQuad(p,u,i+R,j-R,i+9.5,j+R,Y,CW[0],CW[1],CW[2],CW[3],false);
+    /* Gullydeckel je Kreuzung an einer Ecke, Sinkkasten am Bordstein */
+    const mx=i+(((i/BLOCK)|0)%2?-4.4:4.4),mz=j+(((j/BLOCK)|0)%2?4.4:-4.4);
+    pushDecalQuad(p,u,mx-1.2,mz-1.2,mx+1.2,mz+1.2,Y,MH[0],MH[1],MH[2],MH[3],false);
+    pushDecalQuad(p,u,i-5.6,j+3.2,i-4.2,j+4.6,Y,DR[0],DR[1],DR[2],DR[3],false);
+    /* Richtungspfeile sparsam auf der Zufahrt (jede zweite Kreuzung) */
+    if(((i/BLOCK)+(j/BLOCK))%2===0){
+      pushDecalQuad(p,u,i-4.6,j-17,i-1.4,j-11,Y,AR[0],AR[1],AR[2],AR[3],false);
+      pushDecalQuad(p,u,i+11,j+1.4,i+17,j+4.6,Y,AR[0],AR[1],AR[2],AR[3],true);
+    }
+  }
+  const tex=new THREE.CanvasTexture(ATLAS.decals);
+  tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(u,2));
+  g.computeVertexNormals();
+  const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({map:tex,transparent:true,
+    alphaTest:.06,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
+  m.receiveShadow=true;scene.add(m);return m;
 }
 /* Stadt-Props als Billboard-Sprites auf den Gehwegen. Höhe pro Zelle einzeln gesetzt, damit
    Hydrant/Poller/Laterne maßstäblich zum Auto (~4.5 lang) und zum Fußgänger (~1.9 hoch) passen. */
@@ -2864,11 +2916,12 @@ async function init(){
   setLoad(20,'Texturen werden geladen\u2026');await nextFrame();
   /* Atlanten vor makeGroundTexture() laden \u2014 die Bodentextur wird einmalig gezeichnet und braucht
      die Kacheln als CanvasPattern. Schl\u00e4gt das Laden fehl (null), greifen \u00fcberall die alten Vollt\u00f6ne. */
-  const [gA,dA,pA]=await Promise.all([
+  const [gA,dA,pA,kA]=await Promise.all([
     loadImage('assets/tiles/city-ground-atlas.jpg'),
     loadImage('assets/tiles/city-detail-atlas-v2.jpg'),
-    loadImage('assets/sprites/city-props-atlas-v1.png')]);
-  ATLAS.ground=gA;ATLAS.detail=dA;ATLAS.props=pA;
+    loadImage('assets/sprites/city-props-atlas-v1.png'),
+    loadImage('assets/tiles/road-decals.png')]);
+  ATLAS.ground=gA;ATLAS.detail=dA;ATLAS.props=pA;ATLAS.decals=kA;
   setLoad(24,'Texturen werden gezeichnet\u2026');await nextFrame();
   groundMat=new THREE.MeshPhongMaterial({map:makeGroundTexture(),shininess:6,specular:0x0d0d0d});
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,800),groundMat);
@@ -2891,7 +2944,7 @@ async function init(){
   buildBlitzers();buildRamps();buildBoosters();buildCoins();buildDestination();buildSigns();
   buildFountains();buildStation();buildRain();buildHorizon();buildHeli();buildBoats();
   buildPuddles();buildPackages();buildParked();buildTrafficLights();buildFares();buildDriftZones();buildMissionBeacon();
-  buildTiledSurfaces();buildCityProps();
+  buildTiledSurfaces();buildRoadDecals();buildCityProps();
   setLoad(82,'Verkehr wird simuliert\u2026');await nextFrame();
   for(let i=0;i<QUALITY.traffic;i++)traffic.push(makeTrafficCar());
   for(let i=0;i<QUALITY.npcs;i++)npcs.push(makeNPC());
