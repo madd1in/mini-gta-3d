@@ -1658,6 +1658,30 @@ function buildWheel(wr,chromeMat,darkMat){
   disc.rotation.z=Math.PI/2;spin.add(disc);
   return{g,spin};
 }
+/* Abgerundeter Quader. Die Fahrzeuge und Fußgänger bestanden bisher ausschließlich aus harten
+   BoxGeometry-Kanten — die fangen kein Licht und lassen alles klotzig wirken. ExtrudeGeometry mit
+   abgerundetem Profil und Bevel liefert weiche Kanten mit Glanzkante, ohne dass eigene Modelle
+   nötig wären. Ergebnis wird zentriert, damit es 1:1 als Box-Ersatz dient. */
+const _rbCache=new Map();
+function roundedBox(w,h,d,r,seg){
+  const key=[w,h,d,r,seg||2].join('|');
+  if(_rbCache.has(key))return _rbCache.get(key);
+  r=Math.min(r,w/2-.001,h/2-.001);
+  const bev=Math.min(r*.8,d/2-.001);
+  const s=new THREE.Shape();
+  const x=-w/2,y=-h/2;
+  s.moveTo(x+r,y);
+  s.lineTo(x+w-r,y);        s.quadraticCurveTo(x+w,y,x+w,y+r);
+  s.lineTo(x+w,y+h-r);      s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  s.lineTo(x+r,y+h);        s.quadraticCurveTo(x,y+h,x,y+h-r);
+  s.lineTo(x,y+r);          s.quadraticCurveTo(x,y,x+r,y);
+  const g=new THREE.ExtrudeGeometry(s,{depth:d-bev*2,bevelEnabled:true,bevelSize:bev,
+    bevelThickness:bev,bevelSegments:seg||2,curveSegments:seg||3,steps:1});
+  g.translate(0,0,-(d-bev*2)/2);
+  g.computeVertexNormals();
+  _rbCache.set(key,g);
+  return g;
+}
 function buildCarModel(style,colHex,forPlayer){
   const g=new THREE.Group();g.rotation.order='YXZ';
   const R={wheels:[],paint:null,headM:null,tailM:null,sigL:null,sigR:null,revM:null};
@@ -1682,24 +1706,24 @@ function buildCarModel(style,colHex,forPlayer){
   }[style]||{bw:2.1,bh:.55,bl:4.4,by:.52,cw:1.8,ch:.55,cl:2.0,cy:1.05,cz:-.2,ws:.45,rw:.4,wr:.41,wz:1.42,tw:1.04,sp:0,sc:0,ex:1};
   const A=(geo,mat,x,y,z,rx,ry,rz,sh)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);
     if(rx)m.rotation.x=rx;if(ry)m.rotation.y=ry;if(rz)m.rotation.z=rz;if(sh)m.castShadow=true;g.add(m);return m;};
-  A(new THREE.BoxGeometry(S.bw,S.bh,S.bl),paint,0,S.by,0,0,0,0,true);
-  A(new THREE.BoxGeometry(S.bw-.06,S.bh*.5,S.bl-.3),paint,0,S.by+S.bh*.6,0,0,0,0,true);
+  A(roundedBox(S.bw,S.bh,S.bl,.16),paint,0,S.by,0,0,0,0,true);
+  A(roundedBox(S.bw-.06,S.bh*.5,S.bl-.3,.12),paint,0,S.by+S.bh*.6,0,0,0,0,true);
   const hoodFront=S.bl/2,hoodRear=S.cz+S.cl/2;
   const hoodL=hoodFront-hoodRear,hoodCz=(hoodFront+hoodRear)/2;
   A(new THREE.BoxGeometry(S.bw-.1,.12,hoodL+.2),paint,0,S.by+S.bh*.55,hoodCz,S.ws*.5,0,0,true);
   const trkFront=S.cz-S.cl/2,trkRear=-S.bl/2;
   const trkL=trkFront-trkRear,trkCz=(trkFront+trkRear)/2;
   A(new THREE.BoxGeometry(S.bw-.1,.12,trkL+.2),paint,0,S.by+S.bh*.55,trkCz,-S.rw*.4,0,0,true);
-  A(new THREE.BoxGeometry(S.cw,.08,S.cl),paint,0,S.cy+S.ch/2,S.cz,0,0,0,true);
+  A(roundedBox(S.cw,.10,S.cl,.05),paint,0,S.cy+S.ch/2,S.cz,0,0,0,true);
   A(new THREE.BoxGeometry(S.cw-.08,S.ch,.06),glass,0,S.cy,S.cz+S.cl/2,-S.ws,0,0);
   A(new THREE.BoxGeometry(S.cw-.08,S.ch,.06),glass,0,S.cy,S.cz-S.cl/2,S.rw,0,0);
   A(new THREE.BoxGeometry(.05,S.ch*.7,S.cl*.8),glass,-S.cw/2,S.cy,S.cz);
   A(new THREE.BoxGeometry(.05,S.ch*.7,S.cl*.8),glass,S.cw/2,S.cy,S.cz);
   A(new THREE.BoxGeometry(S.cw+.04,.04,S.cl+.04),chrome,0,S.cy+S.ch/2+.05,S.cz);
   [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
-    A(new THREE.BoxGeometry(.28,.22,.95),paint,sx*(S.tw+.06),S.wr+.16,sz*S.wz,0,0,0,true);});
-  A(new THREE.BoxGeometry(S.bw+.08,.22,.3),dark,0,S.by-.12,S.bl/2+.05);
-  A(new THREE.BoxGeometry(S.bw+.08,.22,.3),dark,0,S.by-.12,-S.bl/2-.05);
+    A(roundedBox(.28,.24,.98,.10),paint,sx*(S.tw+.06),S.wr+.16,sz*S.wz,0,0,0,true);});
+  A(roundedBox(S.bw+.08,.24,.32,.09),dark,0,S.by-.12,S.bl/2+.05);
+  A(roundedBox(S.bw+.08,.24,.32,.09),dark,0,S.by-.12,-S.bl/2-.05);
   A(new THREE.BoxGeometry(S.bw*.55,.2,.06),dark2,0,S.by+.08,S.bl/2+.16);
   A(new THREE.BoxGeometry(S.bw*.5,.04,.07),chrome,0,S.by+.16,S.bl/2+.17);
   A(new THREE.BoxGeometry(.42,.14,.08),headM,-S.bw*.32,S.by+.18,S.bl/2+.16);
@@ -2020,9 +2044,9 @@ function makeSimpleCar(colHex){
   const glass=new THREE.MeshLambertMaterial({color:0x152233});
   const dark=new THREE.MeshLambertMaterial({color:0x14161a});
   const bw=rnd(1.85,2.05),bl=rnd(4.0,4.6);
-  const body=new THREE.Mesh(new THREE.BoxGeometry(bw,.62,bl),paint);
+  const body=new THREE.Mesh(roundedBox(bw,.62,bl,.15),paint);
   body.position.y=.5;body.castShadow=true;g.add(body);
-  const cab=new THREE.Mesh(new THREE.BoxGeometry(bw*.84,.5,bl*.46),glass);
+  const cab=new THREE.Mesh(roundedBox(bw*.84,.5,bl*.46,.12),glass);
   cab.position.set(0,.98,-bl*.04);g.add(cab);
   const bmp=new THREE.Mesh(new THREE.BoxGeometry(bw+.05,.2,.28),dark);
   bmp.position.set(0,.26,bl/2+.05);g.add(bmp);
@@ -2069,19 +2093,36 @@ function makeTrafficCar(){
 function buildPedestrian(){
   const g=new THREE.Group();
   const shirt=0x2f6fd6,skin=0xffcc99,pants=0x222c3a,shoeCol=0x1a1a1a,hairCol=0x3a2a1a;
-  const t=new THREE.Mesh(new THREE.BoxGeometry(.56,.76,.36),new THREE.MeshLambertMaterial({color:shirt}));t.position.y=1.22;t.castShadow=true;g.add(t);
-  const collar=new THREE.Mesh(new THREE.BoxGeometry(.58,.09,.38),new THREE.MeshLambertMaterial({color:0x1f4fa8}));collar.position.y=1.57;g.add(collar);
-  const armL=new THREE.Mesh(new THREE.BoxGeometry(.15,.58,.15),new THREE.MeshLambertMaterial({color:shirt}));armL.position.set(-.38,1.24,0);g.add(armL);
-  const armR=new THREE.Mesh(new THREE.BoxGeometry(.15,.58,.15),new THREE.MeshLambertMaterial({color:shirt}));armR.position.set(.38,1.24,0);g.add(armR);
-  const handL=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),new THREE.MeshLambertMaterial({color:skin}));handL.position.set(0,-.32,0);armL.add(handL);
-  const handR=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),new THREE.MeshLambertMaterial({color:skin}));handR.position.set(0,-.32,0);armR.add(handR);
-  const h=new THREE.Mesh(new THREE.SphereGeometry(.24,10,8),new THREE.MeshLambertMaterial({color:skin}));h.position.y=1.86;h.castShadow=true;g.add(h);
-  const hairCap=new THREE.Mesh(new THREE.SphereGeometry(.25,10,8,0,Math.PI*2,0,Math.PI*.55),new THREE.MeshLambertMaterial({color:hairCol}));
-  hairCap.position.y=1.9;g.add(hairCap);
-  const legL=new THREE.Mesh(new THREE.BoxGeometry(.19,.66,.24),new THREE.MeshLambertMaterial({color:pants}));legL.position.set(-.15,.48,0);g.add(legL);
-  const legR=new THREE.Mesh(new THREE.BoxGeometry(.19,.66,.24),new THREE.MeshLambertMaterial({color:pants}));legR.position.set(.15,.48,0);g.add(legR);
-  const shoeL=new THREE.Mesh(new THREE.BoxGeometry(.21,.12,.32),new THREE.MeshLambertMaterial({color:shoeCol}));shoeL.position.set(0,-.36,.05);legL.add(shoeL);
-  const shoeR=new THREE.Mesh(new THREE.BoxGeometry(.21,.12,.32),new THREE.MeshLambertMaterial({color:shoeCol}));shoeR.position.set(0,-.36,.05);legR.add(shoeR);
+  /* Rumpf und Gliedmaßen als abgerundete Körper bzw. Zylinder mit Kugelgelenken statt reiner
+     Quader. Positionen und die userData-Namen bleiben identisch, damit die vorhandene
+     Laufanimation (rotation.x auf Armen/Beinen) unverändert weiterläuft. */
+  const shirtM=new THREE.MeshLambertMaterial({color:shirt});
+  const skinM=new THREE.MeshLambertMaterial({color:skin});
+  const pantsM=new THREE.MeshLambertMaterial({color:pants});
+  const shoeM=new THREE.MeshLambertMaterial({color:shoeCol});
+  const t=new THREE.Mesh(roundedBox(.56,.76,.36,.15),shirtM);t.position.y=1.22;t.castShadow=true;g.add(t);
+  const hips=new THREE.Mesh(roundedBox(.5,.24,.34,.11),pantsM);hips.position.y=.86;g.add(hips);
+  const collar=new THREE.Mesh(roundedBox(.58,.10,.38,.05),new THREE.MeshLambertMaterial({color:0x1f4fa8}));
+  collar.position.y=1.57;g.add(collar);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,.14,8),skinM);neck.position.y=1.66;g.add(neck);
+  [-1,1].forEach(s=>{const sh=new THREE.Mesh(new THREE.SphereGeometry(.15,10,8),shirtM);
+    sh.position.set(s*.29,1.5,0);sh.scale.set(1,.85,1);g.add(sh);});
+  const armGeo=new THREE.CylinderGeometry(.075,.062,.58,8);
+  const armL=new THREE.Mesh(armGeo,shirtM);armL.position.set(-.38,1.24,0);g.add(armL);
+  const armR=new THREE.Mesh(armGeo,shirtM);armR.position.set(.38,1.24,0);g.add(armR);
+  const handL=new THREE.Mesh(new THREE.SphereGeometry(.085,8,6),skinM);handL.position.set(0,-.32,0);armL.add(handL);
+  const handR=new THREE.Mesh(new THREE.SphereGeometry(.085,8,6),skinM);handR.position.set(0,-.32,0);armR.add(handR);
+  const h=new THREE.Mesh(new THREE.SphereGeometry(.24,14,12),skinM);h.position.y=1.86;h.scale.set(.94,1.06,1);h.castShadow=true;g.add(h);
+  const hairCap=new THREE.Mesh(new THREE.SphereGeometry(.252,14,12,0,Math.PI*2,0,Math.PI*.58),new THREE.MeshLambertMaterial({color:hairCol}));
+  hairCap.position.y=1.9;hairCap.scale.set(.96,1.04,1.02);g.add(hairCap);
+  const legGeo=new THREE.CylinderGeometry(.105,.085,.66,8);
+  const legL=new THREE.Mesh(legGeo,pantsM);legL.position.set(-.15,.48,0);g.add(legL);
+  const legR=new THREE.Mesh(legGeo,pantsM);legR.position.set(.15,.48,0);g.add(legR);
+  [-1,1].forEach(s=>{const kn=new THREE.Mesh(new THREE.SphereGeometry(.095,8,6),pantsM);
+    kn.position.set(s*.15,.5,0);g.add(kn);});
+  const shoeGeo=roundedBox(.21,.13,.33,.06);
+  const shoeL=new THREE.Mesh(shoeGeo,shoeM);shoeL.position.set(0,-.36,.05);legL.add(shoeL);
+  const shoeR=new THREE.Mesh(shoeGeo,shoeM);shoeR.position.set(0,-.36,.05);legR.add(shoeR);
   g.userData={legL,legR,armL,armR};
   g.visible=false;scene.add(g);
   return g;
@@ -2090,16 +2131,29 @@ function makeNPC(){
   const g=new THREE.Group(),shirts=[0xff4444,0x4466ff,0x44cc44,0xffdd44,0xff44dd,0x44dddd,0xffffff,0xff8844];
   const skin=[0xffcc99,0xdd9966,0xaa7744,0xffddbb][Math.floor(Math.random()*4)];
   const shirt=shirts[Math.floor(Math.random()*shirts.length)];
-  const t=new THREE.Mesh(new THREE.BoxGeometry(.6,.8,.4),new THREE.MeshLambertMaterial({color:shirt}));t.position.y=1.2;g.add(t);
-  const armL=new THREE.Mesh(new THREE.BoxGeometry(.16,.6,.16),new THREE.MeshLambertMaterial({color:shirt}));armL.position.set(-.4,1.22,0);g.add(armL);
-  const armR=new THREE.Mesh(new THREE.BoxGeometry(.16,.6,.16),new THREE.MeshLambertMaterial({color:shirt}));armR.position.set(.4,1.22,0);g.add(armR);
-  const handL=new THREE.Mesh(new THREE.SphereGeometry(.08,6,5),new THREE.MeshLambertMaterial({color:skin}));handL.position.set(0,-.33,0);armL.add(handL);
-  const handR=new THREE.Mesh(new THREE.SphereGeometry(.08,6,5),new THREE.MeshLambertMaterial({color:skin}));handR.position.set(0,-.33,0);armR.add(handR);
-  const h=new THREE.Mesh(new THREE.SphereGeometry(.25,8,8),new THREE.MeshLambertMaterial({color:skin}));h.position.y=1.85;g.add(h);
-  const legL=new THREE.Mesh(new THREE.BoxGeometry(.2,.7,.25),new THREE.MeshLambertMaterial({color:0x334455}));legL.position.set(-.15,.45,0);g.add(legL);
-  const legR=new THREE.Mesh(new THREE.BoxGeometry(.2,.7,.25),new THREE.MeshLambertMaterial({color:0x334455}));legR.position.set(.15,.45,0);g.add(legR);
-  const shoeL=new THREE.Mesh(new THREE.BoxGeometry(.21,.11,.3),new THREE.MeshLambertMaterial({color:0x181818}));shoeL.position.set(0,-.37,.04);legL.add(shoeL);
-  const shoeR=new THREE.Mesh(new THREE.BoxGeometry(.21,.11,.3),new THREE.MeshLambertMaterial({color:0x181818}));shoeR.position.set(0,-.37,.04);legR.add(shoeR);
+  /* Gleiche Formensprache wie beim Spieler-Fußgänger. roundedBox cacht seine Geometrien, alle
+     NPCs teilen sich also dieselben Puffer — die weicheren Formen kosten praktisch nichts extra. */
+  const shirtM=new THREE.MeshLambertMaterial({color:shirt});
+  const skinM=new THREE.MeshLambertMaterial({color:skin});
+  const pantsM=new THREE.MeshLambertMaterial({color:0x334455});
+  const t=new THREE.Mesh(roundedBox(.6,.8,.4,.16),shirtM);t.position.y=1.2;g.add(t);
+  const hips=new THREE.Mesh(roundedBox(.52,.24,.36,.11),pantsM);hips.position.y=.84;g.add(hips);
+  [-1,1].forEach(s=>{const sh=new THREE.Mesh(new THREE.SphereGeometry(.155,8,6),shirtM);
+    sh.position.set(s*.3,1.48,0);sh.scale.set(1,.85,1);g.add(sh);});
+  const armGeo=new THREE.CylinderGeometry(.08,.065,.6,7);
+  const armL=new THREE.Mesh(armGeo,shirtM);armL.position.set(-.4,1.22,0);g.add(armL);
+  const armR=new THREE.Mesh(armGeo,shirtM);armR.position.set(.4,1.22,0);g.add(armR);
+  const handL=new THREE.Mesh(new THREE.SphereGeometry(.08,6,5),skinM);handL.position.set(0,-.33,0);armL.add(handL);
+  const handR=new THREE.Mesh(new THREE.SphereGeometry(.08,6,5),skinM);handR.position.set(0,-.33,0);armR.add(handR);
+  const h=new THREE.Mesh(new THREE.SphereGeometry(.25,12,10),skinM);h.position.y=1.85;h.scale.set(.94,1.06,1);g.add(h);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,.14,7),skinM);neck.position.y=1.64;g.add(neck);
+  const legGeo=new THREE.CylinderGeometry(.11,.088,.7,7);
+  const legL=new THREE.Mesh(legGeo,pantsM);legL.position.set(-.15,.45,0);g.add(legL);
+  const legR=new THREE.Mesh(legGeo,pantsM);legR.position.set(.15,.45,0);g.add(legR);
+  const shoeGeo=roundedBox(.21,.12,.31,.055);
+  const shoeM=new THREE.MeshLambertMaterial({color:0x181818});
+  const shoeL=new THREE.Mesh(shoeGeo,shoeM);shoeL.position.set(0,-.37,.04);legL.add(shoeL);
+  const shoeR=new THREE.Mesh(shoeGeo,shoeM);shoeR.position.set(0,-.37,.04);legR.add(shoeR);
   const umbCols=[0xff4444,0x4466ff,0xffd400,0x22cc55,0xff44dd,0xffffff];
   const umb=new THREE.Mesh(new THREE.ConeGeometry(.55,.35,8),new THREE.MeshLambertMaterial({color:umbCols[Math.floor(Math.random()*umbCols.length)]}));
   umb.position.y=2.2;umb.visible=false;g.add(umb);
