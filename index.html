@@ -2301,7 +2301,7 @@ function buildPedestrian(){
   const legL=new THREE.Mesh(legGeo,pantsM);legL.position.set(-.15,.48,0);g.add(legL);
   const legR=new THREE.Mesh(legGeo,pantsM);legR.position.set(.15,.48,0);g.add(legR);
   [-1,1].forEach(s=>{const kn=new THREE.Mesh(new THREE.SphereGeometry(.095,8,6),pantsM);
-    kn.position.set(s*.15,.5,0);g.add(kn);small.push(kn);});
+    kn.position.set(s*.15,.5,0);g.add(kn);});
   const shoeGeo=roundedBox(.21,.13,.33,.06);
   const shoeL=new THREE.Mesh(shoeGeo,shoeM);shoeL.position.set(0,-.36,.05);legL.add(shoeL);
   const shoeR=new THREE.Mesh(shoeGeo,shoeM);shoeR.position.set(0,-.36,.05);legR.add(shoeR);
