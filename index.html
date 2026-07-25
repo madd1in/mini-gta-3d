@@ -323,9 +323,11 @@ body.mobile.is-landscape #tcRight{width:70px;height:70px;font-size:27px;
   left:calc(90px + env(safe-area-inset-left));bottom:calc(74px + env(safe-area-inset-bottom))}
 body.mobile.is-landscape #tcHandbrake{width:56px;height:56px;font-size:12px;
   left:calc(46px + env(safe-area-inset-left));bottom:calc(12px + env(safe-area-inset-bottom))}
+/* Zentrierung über left statt transform: .tcBtn nutzt transform bereits für den Druck-Effekt
+   (scale) samt Transition — eine Zentrierung per translateX kollidiert damit und blieb beim
+   Wechsel zurück ins Hochformat hängen (Knopf saß dann 29px zu weit links auf der Handbremse). */
 body.mobile.is-landscape #tcAction{width:54px;height:54px;font-size:10px;
-  left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom))}
-body.mobile.is-landscape #tcAction.on{transform:translateX(-50%) scale(.94)}
+  left:calc(50% - 27px);bottom:calc(12px + env(safe-area-inset-bottom))}
 body.mobile.is-landscape #tcGas{width:86px;height:86px;font-size:16px;
   right:calc(14px + env(safe-area-inset-right));bottom:calc(70px + env(safe-area-inset-bottom))}
 body.mobile.is-landscape #tcBrake{width:64px;height:64px;font-size:12px;
@@ -339,11 +341,9 @@ body.mobile.onfoot #tcMenuBtn{top:calc(232px + env(safe-area-inset-top))}
 body.mobile.onfoot #tcMenuPanel{top:calc(284px + env(safe-area-inset-top))}
 body.mobile.is-landscape.onfoot #tcMenuBtn{top:calc(194px + env(safe-area-inset-top))}
 body.mobile.is-landscape.onfoot #tcMenuPanel{top:auto;bottom:calc(30px + env(safe-area-inset-bottom))}
-/* Laufmodus: Lenktasten sind aus, der Knopf darf wieder nach links — transform zurücksetzen,
-   sonst zöge die Zentrierung aus der Querformat-Regel ihn um die halbe Breite daneben. */
+/* Laufmodus: Lenktasten sind aus, der Knopf darf wieder nach links */
 body.mobile.is-landscape.onfoot #tcAction{left:calc(172px + env(safe-area-inset-left));
-  bottom:calc(30px + env(safe-area-inset-bottom));transform:none}
-body.mobile.is-landscape.onfoot #tcAction.on{transform:scale(.94)}
+  bottom:calc(30px + env(safe-area-inset-bottom))}
 #tcMenuBtn{position:fixed;top:calc(16px + env(safe-area-inset-top));right:calc(16px + env(safe-area-inset-right));width:44px;height:44px;border-radius:50%;pointer-events:auto;
 display:none;align-items:center;justify-content:center;font:700 22px 'Chakra Petch';touch-action:none;
 background:rgba(10,15,28,.75);border:2px solid var(--cyan);color:var(--cyan);user-select:none;-webkit-user-select:none}
