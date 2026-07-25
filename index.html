@@ -644,17 +644,25 @@ const STATIONS=[
    {title:'VICE COAST RUN',file:'radio/vice-coast-run.mp3',hot:true},       /* 3.40 */
    {title:'BOULEVARD HEAT LOOP',file:'radio/boulevard-heat-loop.mp3',hot:true}, /* 3.78 */
    {title:'FIVE STAR MAYHEM',file:'radio/five-star-mayhem.mp3',hot:false},  /* 2.42 */
-   {title:'JET FUEL GLORY',file:'radio/jet-fuel-glory.mp3',hot:false}]},    /* 2.53 */
+   {title:'JET FUEL GLORY',file:'radio/jet-fuel-glory.mp3',hot:false},      /* 2.53 */
+   {title:'BRASS RUBBERBAND',file:'radio/brass-rubberband.mp3',hot:false}]},
  {name:'APEX FM',tag:'RENNFUNK',bpm:0,mp3:true,tracks:[
    {title:'MUDLINE OVERDRIVE',file:'radio/mudline-overdrive.mp3',hot:true}, /* 3.22 */
    {title:'KARTFIRE PARADE',file:'radio/kartfire-parade.mp3',hot:true},     /* 3.85 */
-   {title:'CLIFFLINE RUN',file:'radio/cliffline-run.mp3',hot:false}]},      /* 1.58 */
+   {title:'CLIFFLINE RUN',file:'radio/cliffline-run.mp3',hot:false},        /* 1.58 */
+   {title:'MUDLINE APEX',file:'radio/mudline-apex.mp3',hot:true},
+   {title:'BLACK ICE APEX',file:'radio/black-ice-apex.mp3',hot:true},
+   {title:'TURBO BANANA CUP',file:'radio/turbo-banana-cup.mp3',hot:false},
+   {title:'MARBLE MARAUDERS',file:'radio/marble-marauders.mp3',hot:false}]},
  {name:'NACHTFALTER FM',tag:'SPÄTPROGRAMM',bpm:0,mp3:true,tracks:[
    {title:'NACHTFALTER FM',file:'radio/nachtfalter-fm.mp3',hot:true},       /* 4.12 */
    {title:'BETONHAIN NIGHT',file:'radio/betonhain-night.mp3',hot:false},    /* 2.78 */
    {title:'RADIO CHROM',file:'radio/radio-chrom.mp3',hot:false},            /* 2.64 */
    {title:'BASSKELLER',file:'radio/basskeller.mp3',hot:true},               /* 4.45 */
-   {title:'FUNK 88.8',file:'radio/funk-88-8.mp3',hot:true}]},               /* 4.32 */
+   {title:'FUNK 88.8',file:'radio/funk-88-8.mp3',hot:true},                 /* 4.32 */
+   {title:'MOSSWING PATH',file:'radio/mosswing-path.mp3',hot:false},
+   {title:'SKYGARDEN MARCH',file:'radio/skygarden-march.mp3',hot:false},
+   {title:'STEEL PUNCH PARADE',file:'radio/steel-punch-parade.mp3',hot:true}]},
  {name:'TURBO FM',tag:'SYNTHWAVE',bpm:112,swing:0,chords:[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],roots:[33,29,36,31],bassMode:0,arp:1,lead:1,kick:[0,4,8,12],snare:[4,12],hats:'all',leadPat:[76,null,74,null,72,null,74,76,null,79,null,76,null,74,72,null,null]},
  {name:'NIGHT DRIVE',tag:'LO-FI CHILL',bpm:74,swing:.16,chords:[[59,62,66,69],[55,59,62,66],[52,55,59,62],[57,60,64,67]],roots:[35,31,28,33],bassMode:1,arp:0,lead:0,kick:[0,7,10],snare:[8],hats:'off',leadPat:null},
  {name:'NITRO FM',tag:'BREAKBEAT',bpm:152,swing:0,chords:[[57,60,64],[55,59,62],[57,60,64],[50,53,57]],roots:[33,31,33,26],bassMode:2,arp:2,lead:0,kick:[0,10],snare:[4,12],hats:'all',leadPat:null},
@@ -752,10 +760,17 @@ function shuffleRadio(){
       const t=st.tracks[i];st.tracks[i]=st.tracks[j];st.tracks[j]=t;
     }
   }
-  /* Start immer ruhig — beim Losfahren ist noch nichts los. */
+  /* Auch der Startsender wird ausgelost: vorher lief immer MINI CITY FM, dadurch gab es beim
+     Start nur eine Handvoll möglicher Einstiegstitel. Gestartet wird stets mit einem ruhigen
+     Titel — beim Losfahren ist noch nichts los. */
+  const mp3Idx=[];
+  for(let i=0;i<STATIONS.length;i++)if(STATIONS[i].mp3)mp3Idx.push(i);
+  if(mp3Idx.length)stationIdx=mp3Idx[Math.floor(Math.random()*mp3Idx.length)];
   const cur=STATIONS[stationIdx];
   musicHot=false;musicHotPending=false;musicMoodT=0;
+  mp3StationIdx=-1;
   mp3TrackIdx=cur&&cur.mp3?pickTrackIdx(cur,false):0;
+  if(DOM.radioChip&&cur)DOM.radioChip.innerHTML='&#128251; <b>'+cur.name+'</b> &nbsp;&#8226;&nbsp; '+cur.tag+' &nbsp;[TAB]';
 }
 function playMp3Track(idx){const st=STATIONS[stationIdx];if(!st||!st.mp3||!radioAudio)return;
   mp3TrackIdx=idx%st.tracks.length;mp3StationIdx=stationIdx;
@@ -3590,6 +3605,16 @@ function update(dt){
     if(d>2.3&&d<4.6&&spd>24&&time-u.nm>3.5&&!dead){u.nm=time;combo++;comboT=4;const rw=100*combo;money+=rw;
       addStunt('NEAR MISS',150);popup('NEAR MISS \u00D7'+combo+'  +$'+rw,'cyan');sfxWhoosh();}
     if(d<4.2&&honkCd<=0&&!dead){honkCd=4;sfxHonk();}
+    /* Bei laufender Verfolgung macht der Verkehr Platz: abbremsen und zur Seite ausweichen.
+       Das macht die Sirenen spürbar und öffnet dir eine Gasse, statt dass die Stadt unbeeindruckt
+       weiterrollt. Seitversatz quer zur Fahrtrichtung, damit die Autos in ihrer Spur bleiben. */
+    if(wanted>=2&&d<26&&!dead){
+      target=Math.min(target,.25);
+      const sx=dirz,sz=-dirx;                      /* Normale zur Fahrtrichtung */
+      const side=((t.position.x-car.position.x)*sx+(t.position.z-car.position.z)*sz)>=0?1:-1;
+      const push=Math.min(1,(26-d)/26)*2.6*sdt*side;
+      t.position.x+=sx*push;t.position.z+=sz*push;
+    }
     u.sc+=(target-u.sc)*Math.min(1,sdt*3);
     /* Bremslicht: leuchtet, wenn das Fahrzeug spürbar verzögert oder fast steht */
     if(u.brakeMat){
